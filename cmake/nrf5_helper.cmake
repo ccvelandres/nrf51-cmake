@@ -167,5 +167,13 @@ function(nrf5_setup_exe target)
 
     # Post build commands
     add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE})
+        COMMAND ${CMAKE_SIZE} "${target}"
+        COMMAND ${CMAKE_OBJCOPY} -O ihex "${target}" "${target}.hex"
+        COMMAND ${CMAKE_OBJCOPY} -O binary "${target}" "${target}.bin")
+
+    if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
+        # copy softdevice hex
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy ${NRF5_SOFTDEVICE_HEX} $<TARGET_PROPERTY:${target},BINARY_DIR>)
+    endif()
 endfunction()

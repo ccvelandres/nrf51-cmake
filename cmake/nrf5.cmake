@@ -66,15 +66,7 @@ if(nrf5_ldflags_${NRF5_CHIP})
     add_link_options(${nrf5_ldflags_${NRF5_CHIP}})
 endif()
 
-add_link_options(${nrf5_ld_inc} nrf5_ld_${NRF5_TOOLCHAIN}_inc)
-
-# Select linker script
-if(NOT NRF5_LINKER_SCRIPT)
-    nrf5_getvar(NRF5_LINKER_SCRIPT 
-        nrf5_linker_${NRF5_TOOLCHAIN}_${NRF5_TARGET} 
-        nrf5_linker_${NRF5_TOOLCHAIN}_${NRF5_FAMILY}_${NRF5_VARIANT})
-endif()
-message(STATUS "NRF5 Linker Script: ${NRF5_LINKER_SCRIPT}")
+add_link_options(${nrf5_ld_inc} ${nrf5_ld_${NRF5_TOOLCHAIN}_inc})
 
 # Check SoftDevice support
 if(NOT ${NRF5_SOFTDEVICE} IN_LIST nrf5_softdevice_variants)
@@ -82,22 +74,42 @@ if(NOT ${NRF5_SOFTDEVICE} IN_LIST nrf5_softdevice_variants)
 endif()
 message(STATUS "NRF5 SoftDevice: ${NRF5_SOFTDEVICE}")
 
+# Set softdevice hexfile
+if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
+    nrf5_check_var(nrf5_softdevice_${NRF5_SOFTDEVICE}_hex)
+    set(NRF5_SOFTDEVICE_HEX ${nrf5_softdevice_${NRF5_SOFTDEVICE}_hex})
+endif()
+get_filename_component(NRF5_SOFTDEVICE_HEXNAME ${NRF5_SOFTDEVICE_HEX} NAME)
+message(STATUS "NRF5 SoftDevice Hex: ${NRF5_SOFTDEVICE_HEXNAME}")
+
+# Select linker script
+if(NOT NRF5_LINKER_SCRIPT)
+    # use softdevice linker if valid, then target, then family
+    nrf5_getvar(NRF5_LINKER_SCRIPT 
+        nrf5_softdevice_${NRF5_SOFTDEVICE}_${NRF5_TOOLCHAIN}_linker
+        nrf5_linker_${NRF5_TOOLCHAIN}_${NRF5_TARGET} 
+        nrf5_linker_${NRF5_TOOLCHAIN}_${NRF5_FAMILY}_${NRF5_VARIANT})
+endif()
+message(STATUS "NRF5 Linker Script: ${NRF5_LINKER_SCRIPT}")
+
+# Temporarily move *_OUTPUT_DIRECTORY for nrf5 targets
+set(_CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+set(_CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+set(_CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/nrf5)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/nrf5)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/nrf5)
+
 # create base target
 set(NRF5_BASE_TARGET nrf5_${NRF5_CHIP}_base)
 nrf5_base_target(${NRF5_BASE_TARGET} ${NRF5_CHIP} ${NRF5_TARGET} ${NRF5_FAMILY} )
-
-# Check if softdevice variant is supported
-list(FIND nrf5_softdevice_variants ${NRF5_SOFTDEVICE} found)
-if(FOUND EQUAL -1)
-message(FATAL_ERROR "Unsupported SoftDevice: ${NRF5_SOFTDEVICE}")
-endif()
 
 # Create soft device targets
 foreach(tgt ${nrf5_softdevices})
     nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_${tgt})
 endforeach()
 
-# Select softdevice and link to base target
+# Select softdevice and link to base target and set hex path
 set(NRF5_SOFTDEVICE_TARGET nrf5_softdevice_${NRF5_SOFTDEVICE})
 target_link_libraries(${NRF5_BASE_TARGET} ${NRF5_SOFTDEVICE_TARGET})
 
@@ -111,3 +123,7 @@ foreach(tgt ${nrf5_libraries})
     nrf5_create_object(${NRF5_CHIP} nrf5_library_${tgt})
 endforeach()
 
+# Revert *_OUTPUT_DIRECTORY back
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${_CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${_CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${_CMAKE_RUNTIME_OUTPUT_DIRECTORY})

@@ -78,7 +78,9 @@ set(nrf5_softdevice_s130_inc
     $<$<STREQUAL:$<UPPER_CASE:${NRF5_FAMILY}>,NRF51>:${NRF5_SDK_COMPONENTS_SOFTDEVICE_PATH}/s130/headers/nrf51>)
 set(nrf5_softdevice_s130_dep nrf5_softdevice_softdevice_handler)
 set(nrf5_softdevice_s130_def "-DS130" "-DBLE_STACK_SUPPORT_REQD")
-set(nrf5_softdevice_s130_)
+set(nrf5_softdevice_s130_hex ${NRF5_SDK_COMPONENTS_SOFTDEVICE_PATH}/s130/hex/s130_nrf51_2.0.1_softdevice.hex)
+set(nrf5_softdevice_s130_gcc_linker 
+    ${NRF5_SDK_COMPONENTS_SOFTDEVICE_PATH}/s130/toolchain/armgcc/armgcc_s130_${NRF5_TARGET}.ld)
 
 # nrf_soc_nosd
 set(nrf5_softdevice_none_src 
