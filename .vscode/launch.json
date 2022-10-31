@@ -3,10 +3,19 @@
         {
             "name": "(gdb) Launch",
             "type": "gdb",
-            "request": "launch",
+            "request": "attach",
+            "executable": "${workspaceFolder}/build/main",
+            "remote": true,
+            "target": "extended-remote /dev/ttyACM0",
             "stopAtEntry": false,
-            "cwd": "${fileDirname}"
-            
+            "cwd": "${workspaceFolder}",
+            "autorun": [
+                "mon twpr enable",
+                "mon swdp_scan",
+                "attach 1",
+                "load ${1:${workspaceFolder}/build/main}"
+            ],
+            "gdbpath": "gdb-multiarch"
         }
     ],
     "version": "2.0.0"

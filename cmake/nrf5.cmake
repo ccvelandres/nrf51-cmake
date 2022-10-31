@@ -78,9 +78,9 @@ message(STATUS "NRF5 SoftDevice: ${NRF5_SOFTDEVICE}")
 if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
     nrf5_check_var(nrf5_softdevice_${NRF5_SOFTDEVICE}_hex)
     set(NRF5_SOFTDEVICE_HEX ${nrf5_softdevice_${NRF5_SOFTDEVICE}_hex})
+    get_filename_component(NRF5_SOFTDEVICE_HEXNAME ${NRF5_SOFTDEVICE_HEX} NAME)
+    message(STATUS "NRF5 SoftDevice Hex: ${NRF5_SOFTDEVICE_HEXNAME}")
 endif()
-get_filename_component(NRF5_SOFTDEVICE_HEXNAME ${NRF5_SOFTDEVICE_HEX} NAME)
-message(STATUS "NRF5 SoftDevice Hex: ${NRF5_SOFTDEVICE_HEXNAME}")
 
 # Select linker script
 if(NOT NRF5_LINKER_SCRIPT)
