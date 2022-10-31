@@ -18,12 +18,12 @@ set(nrf5_chip_nrf51822_xxaa nrf51822 nrf51 nrf51822_xxaa xxaa )
 set(nrf5_chip_nrf52832_xxaa nrf52832 nrf52 nrf52832_xxaa xxaa )
 
 # cflags for target/family
-set(nrf5_cflags -ffunction-sections -fdata-sections -fno-strict-aliasing -fno-builtin --short-enums)
-set(nrf5_cflags_nrf51822 -mcpu=cortex-m0 -mfloat-abi=soft -mthumb -mabi=aapcs )
+set(nrf5_cflags )
+set(nrf5_cflags_nrf51822 -mcpu=cortex-m0 -mfloat-abi=soft )
 
 # ld flags for target/family
 set(nrf5_ldflags )
-set(nrf5_ldflags_nrf51822 -mcpu=cortex-m0 -mthumb -mabi=aapcs )
+set(nrf5_ldflags_nrf51822 -mcpu=cortex-m0 )
 
 # defines per target/family
 set(nrf5_defines )

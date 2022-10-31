@@ -55,8 +55,8 @@ set(CMAKE_ASM_FLAGS "${OBJECT_GEN_FLAGS} -g3" CACHE INTERNAL "ASM Compiler optio
 set(CMAKE_EXE_LINKER_FLAGS "${OBJECT_GEN_FLAGS} -Wl,--gc-sections --specs=nano.specs --specs=nosys.specs -lc -lnosys -lm" CACHE INTERNAL "Linker options")
 
 # Debug/Release configuration
-set(CMAKE_C_FLAGS_DEBUG "-Og -g3 -DDEBUG" CACHE INTERNAL "C Compiler options for debug build type")
-set(CMAKE_CXX_FLAGS_DEBUG "-Og -g3 -DDEBUG" CACHE INTERNAL "C++ Compiler options for debug build type")
+set(CMAKE_C_FLAGS_DEBUG "-g -Og -g3 -DDEBUG" CACHE INTERNAL "C Compiler options for debug build type")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -Og -g3 -DDEBUG" CACHE INTERNAL "C++ Compiler options for debug build type")
 set(CMAKE_ASM_FLAGS_DEBUG "" CACHE INTERNAL "ASM Compiler options for debug build type")
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "" CACHE INTERNAL "Linker options for debug build type")
 

@@ -1,21 +1,54 @@
 {
     "configurations": [
         {
-            "name": "(gdb) Launch",
-            "type": "gdb",
-            "request": "attach",
-            "executable": "${workspaceFolder}/build/main",
-            "remote": true,
-            "target": "extended-remote /dev/ttyACM0",
-            "stopAtEntry": false,
+            "name": "(cortex) NRF51822",
             "cwd": "${workspaceFolder}",
-            "autorun": [
-                "mon twpr enable",
-                "mon swdp_scan",
-                "attach 1",
-                "load ${1:${workspaceFolder}/build/main}"
-            ],
-            "gdbpath": "gdb-multiarch"
+            "executable": "${workspaceRoot}/build/main",
+            "request": "attach",
+            "type": "cortex-debug",
+            "servertype": "bmp",
+            "interface": "swd",
+            "gdbPath": "gdb-multiarch",
+            "device": "NRF51822",
+            "powerOverBMP": "enable",
+            "svdFile": "/home/stempanerd/nrf/nrf51SDK/nRF5_SDK_12.3.0_d7731ad/svd/nrf51.svd",
+            "runToEntryPoint": "main",
+            "BMPGDBSerialPort": "/dev/ttyACM0",
+            "preRestartCommands": [
+                "enable breakpoint",
+                "break main"
+            ]
+            // "targetArchitecture": "arm",
+            // "program": "${workspaceRoot}/build/main",
+            // "useExtendedRemote": true,
+            // "MIMode": "gdb",
+            // "miDebuggerPath": "gdb-multiarch",
+            // "miDebuggerServerAddress": "/dev/ttyACM0",
+            // "setupCommands": [
+            //     { "text": "target extended-remote /dev/ttyACM0", "ignoreFailures": false },
+            //     { "text": "file ${workspaceRoot}/build/main", "ignoreFailures": false },
+            //     { "text": "mon swdp_scan", "ignoreFailures": false }
+            // ],
+            // "logging": {
+            //     "trace": true,
+            //     "exceptions": true,
+            //     "moduleLoad": true,
+            //     "engineLogging": true,
+            //     "programOutput": true,
+            //     "traceResponse": true
+            // }
+            // "executable": "${workspaceFolder}/build/main",
+            // "remote": true,
+            // "target": "extended-remote /dev/ttyACM0",
+            // "stopAtEntry": false,
+            // "cwd": "${workspaceFolder}",
+            // "autorun": [
+            //     "mon twpr enable",
+            //     "mon swdp_scan",
+            //     "attach 1",
+            //     "load ${1:${workspaceFolder}/build/main}"
+            // ],
+            // "gdbpath": "gdb-multiarch"
         }
     ],
     "version": "2.0.0"

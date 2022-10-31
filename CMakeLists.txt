@@ -252,7 +252,7 @@ include(cmake/nrf5.cmake)
 add_executable(main src/main.c)
 nrf5_setup_exe(main)
 # target_include_directories(main PUBLIC )
-target_link_libraries(main PUBLIC
+target_link_libraries(main PRIVATE
     nrf5_nrf51822_base
     nrf5_driver_clock
     nrf5_driver_delay

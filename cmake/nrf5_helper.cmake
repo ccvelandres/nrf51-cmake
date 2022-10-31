@@ -38,12 +38,14 @@ macro(nrf5_get_subdirs _dir _outdirlist _recurse _glob)
 endmacro()
 
 function(nrf5_getvar outvar)
+    set(_var )
     foreach(var ${ARGN})
         if(${var})
-            set(${outvar} ${${var}} PARENT_SCOPE)
-            return()
+            set(_var ${${var}})
+            break()
         endif()
     endforeach()
+    set(${outvar} ${_var} PARENT_SCOPE)
 endfunction()
 
 function(nrf5_get_sdk_version sdk_path varname)
@@ -104,7 +106,7 @@ function(nrf5_create_object chip target_name)
     endif()
 
     set(base_target nrf5_${chip}_base)
-    set(tgt_type STATIC)
+    set(tgt_type OBJECT)
     set(tgt_sources ${${target_name}_src})
     set(tgt_include ${${target_name}_inc})
     set(tgt_defines ${${target_name}_def})
@@ -115,24 +117,23 @@ function(nrf5_create_object chip target_name)
     endif()
 
     message(DEBUG "Creating target: ${target_name}")
-    add_library(${target_name} ${tgt_type})
-    get_target_property(type ${target_name} TYPE)
-
-    if(type MATCHES INTERFACE_LIBRARY)
+    if(tgt_type MATCHES INTERFACE)
         # Interface library
+        add_library(${target_name} INTERFACE)
         target_include_directories(${target_name} INTERFACE ${tgt_include})
         target_compile_definitions(${target_name} INTERFACE ${tgt_defines})
         target_link_libraries(${target_name} INTERFACE $<$<TARGET_EXISTS:${base_target}>:${base_target}>)
-    elseif(type MATCHES STATIC_LIBRARY)
+    elseif(tgt_type MATCHES OBJECT)
         # Static library
+        add_library(${target_name} OBJECT EXCLUDE_FROM_ALL)
         target_sources(${target_name} PRIVATE ${tgt_sources})
         target_include_directories(${target_name} PUBLIC ${tgt_include})
         target_compile_definitions(${target_name} PUBLIC ${tgt_defines})
         foreach(dep ${tgt_depends})
-            target_link_libraries(${target_name} $<$<TARGET_EXISTS:${dep}>:${dep}>)
+            target_link_libraries(${target_name} INTERFACE $<$<TARGET_EXISTS:${dep}>:${dep}>)
         endforeach()
         # Link to base chip target
-        target_link_libraries(${target_name} $<$<TARGET_EXISTS:${base_target}>:${base_target}>)
+        target_link_libraries(${target_name} INTERFACE $<$<TARGET_EXISTS:${base_target}>:${base_target}>)
     else()
         message(FATAL_ERROR "Invalid library type")
     endif()
@@ -149,7 +150,7 @@ function(nrf5_base_target base_target chip target family)
     nrf5_getvar(tgt_include nrf5_${chip}_base_inc nrf5_${family}_base_inc)
     nrf5_getvar(tgt_defines nrf5_${chip}_base_def nrf5_${family}_base_def)
 
-    add_library(${target_name} STATIC)
+    add_library(${target_name} OBJECT EXCLUDE_FROM_ALL)
     target_sources(${target_name} PRIVATE ${tgt_sources})
     target_include_directories(${target_name} PUBLIC ${tgt_include})
     target_compile_definitions(${target_name} PUBLIC ${tgt_defines})
@@ -160,8 +161,63 @@ function(nrf5_base_target base_target chip target family)
     endif()
 endfunction()
 
+# create object target
+function(nrf5_target)
+    set(options OPTIONAL FAST)
+    set(oneValueArgs TARGET_NAME TARGET_TYPE)
+    set(multiValueArgs 
+        PUBLIC_SOURCES PRIVATE_SOURCES
+        PUBLIC_INCLUDE PRIVATE_INCLUDE INTERFACE_INCLUDE
+        PUBLIC_DEFINES PRIVATE_DEFINES INTERFACE_DEFINES
+        PUBLIC_DEPENDS PRIVATE_DEPENDS INTERFACE_DEPENDS)
+    cmake_parse_arguments(nrf5_target "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+    message(STATUS "nrf5_target_TARGET_NAME: ${nrf5_target_TARGET_NAME}")
+    message(STATUS "nrf5_target_TARGET_TYPE: ${nrf5_target_TARGET_TYPE}")
+
+    add_library(${nrf5_target_TARGET_NAME} ${nrf5_target_TARGET_TYPE})
+    target_sources(${nrf5_target_TARGET_NAME} PUBLIC ${nrf5_target_PUBLIC_SOURCES})
+    target_sources(${nrf5_target_TARGET_NAME} PRIVATE ${nrf5_target_PRIVATE_SOURCES})
+
+    target_include_directories(${nrf5_target_TARGET_NAME} PUBLIC ${nrf5_target_PUBLIC_INCLUDE})
+    target_include_directories(${nrf5_target_TARGET_NAME} PRIVATE ${nrf5_target_PRIVATE_INCLUDE})
+    target_include_directories(${nrf5_target_TARGET_NAME} INTERFACE ${nrf5_target_INTERFACE_INCLUDE})
+
+    target_compile_definitions(${nrf5_target_TARGET_NAME} PUBLIC ${nrf5_target_PUBLIC_DEFINES})
+    target_compile_definitions(${nrf5_target_TARGET_NAME} PRIVATE ${nrf5_target_PRIVATE_DEFINES})
+    target_compile_definitions(${nrf5_target_TARGET_NAME} INTERFACE ${nrf5_target_INTERFACE_DEFINES})
+
+    foreach(dep ${nrf5_target_PUBLIC_DEPENDS})
+        target_link_libraries(${nrf5_target_TARGET_NAME} PUBLIC ${dep})
+    endforeach()
+    foreach(dep ${nrf5_target_PRIVATE_DEPENDS})
+        target_link_libraries(${nrf5_target_TARGET_NAME} PRIVATE ${dep})
+    endforeach()
+    foreach(dep ${nrf5_target_INTERFACE_DEPENDS})
+        target_link_libraries(${nrf5_target_TARGET_NAME} INTERFACE ${dep})
+    endforeach()
+
+    # set(target_name ${base_target})
+    # message(STATUS "Creating base target: ${target_name}")
+
+    # nrf5_getvar(tgt_sources nrf5_${chip}_base_src nrf5_${family}_base_src)
+    # nrf5_getvar(tgt_include nrf5_${chip}_base_inc nrf5_${family}_base_inc)
+    # nrf5_getvar(tgt_defines nrf5_${chip}_base_def nrf5_${family}_base_def)
+
+    # add_library(${target_name} ${tgt_type} EXCLUDE_FROM_ALL)
+    # target_sources(${target_name} PRIVATE ${tgt_sources})
+    # target_include_directories(${target_name} PUBLIC ${tgt_include})
+    # target_compile_definitions(${target_name} PUBLIC ${tgt_defines})
+
+    # # Add extra include directories
+    # if(NRF5_EXTRA_INCLUDE_DIR)
+    #     target_include_directories(${target_name} PUBLIC ${NRF5_EXTRA_INCLUDE_DIR})
+    # endif()
+endfunction()
+
 function(nrf5_setup_exe target)
     # add linker script
+    target_link_libraries(${target} PRIVATE ${NRF5_BASE_TARGET})
     target_link_options(${target} PRIVATE
         "-L${NRF5_LINKER_SCRIPT}"
         "-Wl,-Map=$<TARGET_FILE_DIR:${target}>/$<TARGET_NAME:${target}>.map")

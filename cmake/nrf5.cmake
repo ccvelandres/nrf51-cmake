@@ -102,7 +102,19 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/nrf5)
 
 # create base target
 set(NRF5_BASE_TARGET nrf5_${NRF5_CHIP}_base)
-nrf5_base_target(${NRF5_BASE_TARGET} ${NRF5_CHIP} ${NRF5_TARGET} ${NRF5_FAMILY} )
+nrf5_getvar(tgt_sources nrf5_${chip}_base_src nrf5_${family}_base_src)
+nrf5_getvar(tgt_include nrf5_${chip}_base_inc nrf5_${family}_base_inc)
+nrf5_getvar(tgt_defines nrf5_${chip}_base_def nrf5_${family}_base_def)
+nrf5_getvar(tgt_depends )
+
+# nrf5_target(${NRF5_BASE_TARGET} OBJECT tgt_sources tgt_include tgt_defines tgt_depends)
+nrf5_target(
+    TARGET_NAME ${NRF5_BASE_TARGET}
+    TARGET_TYPE OBJECT
+    PRIVATE_SOURCES ${tgt_sources}
+    PUBLIC_INCLUDE ${tgt_include}
+    PUBLIC_DEFINES ${tgt_defines})
+# nrf5_base_target(${NRF5_BASE_TARGET} ${NRF5_CHIP} ${NRF5_TARGET} ${NRF5_FAMILY} )
 
 # Create soft device targets
 foreach(tgt ${nrf5_softdevices})
@@ -116,6 +128,7 @@ target_link_libraries(${NRF5_BASE_TARGET} ${NRF5_SOFTDEVICE_TARGET})
 # create driver targets
 foreach(tgt ${nrf5_drivers})
     nrf5_create_object(${NRF5_CHIP} nrf5_driver_${tgt})
+    # set(tgt_src )
 endforeach()
 
 # create library targets
