@@ -1,0 +1,4 @@
+#define CLOCK_ENABLED 1
+#define NRF_LOG_ENABLED 1
+
+#define APP_UART_ENABLED 1

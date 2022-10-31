@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "gdb",
+            "request": "launch",
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}"
+            
+        }
+    ],
+    "version": "2.0.0"
+}

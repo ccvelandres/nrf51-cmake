@@ -1,0 +1,13 @@
+{
+    "folders": [
+        {
+            "path": "."
+        },
+        {
+            "path": "../nrf51SDK"
+        }
+    ],
+    "settings": {
+        
+    }
+}

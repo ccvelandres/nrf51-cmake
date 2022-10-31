@@ -1,0 +1,24 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-Bbuild",
+                "-DNRF5_TARGET=nrf51822_xxaa",
+                "-DCMAKE_TOOLCHAIN_FILE=\"./cmake/arm-none-eabi.cmake\"",
+                "-DNRF5_SDK_PATH=\"${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad\"",
+                "-DNRF5_SOFTDEVICE=\"none\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+            },
+            "group": "build"
+        }
+    ]
+}
