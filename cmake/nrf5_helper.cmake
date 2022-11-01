@@ -209,7 +209,7 @@ function(nrf5_setup_exe target)
     # add linker script
     target_link_libraries(${target} PRIVATE ${NRF5_BASE_TARGET})
     target_link_options(${target} PRIVATE
-        "-L${NRF5_LINKER_SCRIPT}"
+        "-T${NRF5_LINKER_SCRIPT}"
         "-Wl,-Map=$<TARGET_FILE_DIR:${target}>/$<TARGET_NAME:${target}>.map")
 
     # Post build commands
