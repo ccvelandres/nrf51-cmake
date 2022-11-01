@@ -80,16 +80,16 @@ set(nrf5_boards_def )
 ################################################################
 # NRF5 SoftDevice
 # softdevice src/inc/def
-set(nrf5_softdevice_softdevice_handler_src 
+set(nrf5_softdevice_handler_src 
     ${NRF5_SDK_COMPONENTS_SOFTDEVICE_PATH}/common/softdevice_handler/softdevice_handler.c
     ${NRF5_SDK_COMPONENTS_SOFTDEVICE_PATH}/common/softdevice_handler/softdevice_handler_appsh.c)
-set(nrf5_softdevice_softdevice_handler_inc 
+set(nrf5_softdevice_handler_inc 
     ${NRF5_SDK_COMPONENTS_SOFTDEVICE_PATH}/common/softdevice_handler)
-set(nrf5_softdevice_softdevice_handler_dep 
+set(nrf5_softdevice_handler_dep 
     nrf5_driver_clock
     nrf5_library_util
     nrf5_library_scheduler)
-set(nrf5_softdevice_softdevice_handler_def "-DSOFTDEVICE_PRESENT" )
+set(nrf5_softdevice_handler_def "-DSOFTDEVICE_PRESENT" )
 
 set(nrf5_softdevice_s130_src )
 set(nrf5_softdevice_s130_inc 

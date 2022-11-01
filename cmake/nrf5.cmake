@@ -124,8 +124,8 @@ target_link_libraries(${NRF5_BASE_TARGET} ${NRF5_SOFTDEVICE_TARGET})
 
 # If softdevice is not none, link softdevice handler
 if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
-    nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_softdevice_handler)
-    target_link_libraries(${NRF5_BASE_TARGET} nrf5_softdevice_softdevice_handler)
+    nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_handler)
+    target_link_libraries(${NRF5_BASE_TARGET} nrf5_softdevice_handler)
 endif()
 
 # create driver targets
