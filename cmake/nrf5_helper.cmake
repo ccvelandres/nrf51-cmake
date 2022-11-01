@@ -90,6 +90,14 @@ function(nrf5_create_genexdebug target_name)
             COMMAND ${CMAKE_COMMAND} -E echo "Sources: \"$<TARGET_PROPERTY:${target_name},SOURCES>\""
             COMMAND ${CMAKE_COMMAND} -E echo "Include Directories: \"$<TARGET_PROPERTY:${target_name},INCLUDE_DIRECTORIES>\""
             COMMAND ${CMAKE_COMMAND} -E echo "Link Libraries: \"$<TARGET_PROPERTY:${target_name},LINK_LIBRARIES>\"")
+    elseif(${type} MATCHES OBJECT_LIBRARY)
+        add_custom_target(${target_name}_genexdebug
+            COMMAND ${CMAKE_COMMAND} -E echo "Target: $<TARGET_NAME:${target_name}>"
+            COMMAND ${CMAKE_COMMAND} -E echo "Definitions: \"$<TARGET_PROPERTY:${target_name},COMPILE_DEFINITIONS>\""
+            COMMAND ${CMAKE_COMMAND} -E echo "Sources: \"$<TARGET_PROPERTY:${target_name},SOURCES>\""
+            COMMAND ${CMAKE_COMMAND} -E echo "Include Directories: \"$<TARGET_PROPERTY:${target_name},INCLUDE_DIRECTORIES>\""
+            COMMAND ${CMAKE_COMMAND} -E echo "Link Libraries: \"$<TARGET_PROPERTY:${target_name},LINK_LIBRARIES>\""
+            COMMAND ${CMAKE_COMMAND} -E echo "Interface Libraries: \"$<TARGET_PROPERTY:${target_name},INTERFACE_LIBRARIES>\"")
     elseif(${type} MATCHES STATIC_LIBRARY)
         add_custom_target(${target_name}_genexdebug
             COMMAND ${CMAKE_COMMAND} -E echo "Target: $<TARGET_NAME:${target_name}>"
@@ -125,15 +133,15 @@ function(nrf5_create_object chip target_name)
         target_link_libraries(${target_name} INTERFACE $<$<TARGET_EXISTS:${base_target}>:${base_target}>)
     elseif(tgt_type MATCHES OBJECT)
         # Static library
-        add_library(${target_name} OBJECT EXCLUDE_FROM_ALL)
+        add_library(${target_name} STATIC EXCLUDE_FROM_ALL)
         target_sources(${target_name} PRIVATE ${tgt_sources})
         target_include_directories(${target_name} PUBLIC ${tgt_include})
         target_compile_definitions(${target_name} PUBLIC ${tgt_defines})
         foreach(dep ${tgt_depends})
-            target_link_libraries(${target_name} INTERFACE $<$<TARGET_EXISTS:${dep}>:${dep}>)
+            target_link_libraries(${target_name} PUBLIC $<$<TARGET_EXISTS:${dep}>:${dep}>)
         endforeach()
         # Link to base chip target
-        target_link_libraries(${target_name} INTERFACE $<$<TARGET_EXISTS:${base_target}>:${base_target}>)
+        target_link_libraries(${target_name} PUBLIC $<$<TARGET_EXISTS:${base_target}>:${base_target}>)
     else()
         message(FATAL_ERROR "Invalid library type")
     endif()
@@ -150,7 +158,7 @@ function(nrf5_base_target base_target chip target family)
     nrf5_getvar(tgt_include nrf5_${chip}_base_inc nrf5_${family}_base_inc)
     nrf5_getvar(tgt_defines nrf5_${chip}_base_def nrf5_${family}_base_def)
 
-    add_library(${target_name} OBJECT EXCLUDE_FROM_ALL)
+    add_library(${target_name} STATIC EXCLUDE_FROM_ALL)
     target_sources(${target_name} PRIVATE ${tgt_sources})
     target_include_directories(${target_name} PUBLIC ${tgt_include})
     target_compile_definitions(${target_name} PUBLIC ${tgt_defines})
@@ -171,9 +179,6 @@ function(nrf5_target)
         PUBLIC_DEFINES PRIVATE_DEFINES INTERFACE_DEFINES
         PUBLIC_DEPENDS PRIVATE_DEPENDS INTERFACE_DEPENDS)
     cmake_parse_arguments(nrf5_target "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
-
-    message(STATUS "nrf5_target_TARGET_NAME: ${nrf5_target_TARGET_NAME}")
-    message(STATUS "nrf5_target_TARGET_TYPE: ${nrf5_target_TARGET_TYPE}")
 
     add_library(${nrf5_target_TARGET_NAME} ${nrf5_target_TARGET_TYPE})
     target_sources(${nrf5_target_TARGET_NAME} PUBLIC ${nrf5_target_PUBLIC_SOURCES})
@@ -197,22 +202,7 @@ function(nrf5_target)
         target_link_libraries(${nrf5_target_TARGET_NAME} INTERFACE ${dep})
     endforeach()
 
-    # set(target_name ${base_target})
-    # message(STATUS "Creating base target: ${target_name}")
-
-    # nrf5_getvar(tgt_sources nrf5_${chip}_base_src nrf5_${family}_base_src)
-    # nrf5_getvar(tgt_include nrf5_${chip}_base_inc nrf5_${family}_base_inc)
-    # nrf5_getvar(tgt_defines nrf5_${chip}_base_def nrf5_${family}_base_def)
-
-    # add_library(${target_name} ${tgt_type} EXCLUDE_FROM_ALL)
-    # target_sources(${target_name} PRIVATE ${tgt_sources})
-    # target_include_directories(${target_name} PUBLIC ${tgt_include})
-    # target_compile_definitions(${target_name} PUBLIC ${tgt_defines})
-
-    # # Add extra include directories
-    # if(NRF5_EXTRA_INCLUDE_DIR)
-    #     target_include_directories(${target_name} PUBLIC ${NRF5_EXTRA_INCLUDE_DIR})
-    # endif()
+    nrf5_create_genexdebug(${nrf5_target_TARGET_NAME})
 endfunction()
 
 function(nrf5_setup_exe target)

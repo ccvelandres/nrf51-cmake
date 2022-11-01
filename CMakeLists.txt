@@ -269,7 +269,7 @@ message(STATUS "nrf5_driver_clock_inc ${nrf5_driver_clock_inc}")
 # target_sources(test PUBLIC ${nrf5_softdevice_src})
 # target_include_directories(test PUBLIC ${nrf5_s130_inc})
 nrf5_create_genexdebug(main)
-nrf5_create_genexdebug(nrf5_nrf51822_base)
+# nrf5_create_genexdebug(nrf5_nrf51822_base)
 
 # get_target_property(inc test INCLUDE_DIRECTORIES)
 # message(STATUS "inc: ${inc}")
