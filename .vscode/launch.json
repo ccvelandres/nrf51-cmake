@@ -3,7 +3,8 @@
         {
             "name": "(cortex) NRF51822",
             "cwd": "${workspaceFolder}",
-            "executable": "${workspaceRoot}/build/main",
+            // "executable": "${workspaceRoot}/build/main",
+            "executable": "${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad/examples/peripheral/uart/pca10028/blank/armgcc/_build/nrf51422_xxac.out",
             "request": "attach",
             "type": "cortex-debug",
             "servertype": "bmp",

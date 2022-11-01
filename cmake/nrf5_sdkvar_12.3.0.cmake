@@ -122,3 +122,17 @@ set(nrf5_softdevices
     s132
     s212
     s332)
+
+set(nrf5_ble
+    common
+    ble_advertising
+    ble_db_discovery
+    ble_debug_assert_handler
+    ble_dtm
+    ble_error_log
+    ble_racp
+    ble_radio_notification
+    ble_services
+    nrf_ble_gatt
+    nrf_ble_qwr
+    peer_manager)

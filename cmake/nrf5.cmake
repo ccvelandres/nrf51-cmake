@@ -104,12 +104,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/nrf5)
 set(NRF5_BASE_TARGET nrf5_${NRF5_CHIP}_base)
 nrf5_base_target(${NRF5_BASE_TARGET} ${NRF5_CHIP} ${NRF5_TARGET} ${NRF5_FAMILY} )
 
-# Create soft device targets
-foreach(tgt ${nrf5_softdevices})
-    nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_${tgt})
-endforeach()
-
-# Select softdevice and link to base target and set hex path
+# Create softdevice and link to base target and set hex path
+nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_${NRF5_SOFTDEVICE})
 set(NRF5_SOFTDEVICE_TARGET nrf5_softdevice_${NRF5_SOFTDEVICE})
 target_link_libraries(${NRF5_BASE_TARGET} ${NRF5_SOFTDEVICE_TARGET})
 

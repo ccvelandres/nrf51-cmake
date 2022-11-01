@@ -13,7 +13,7 @@
                 "-DNRF5_TARGET=nrf51822_xxaa",
                 "-DCMAKE_TOOLCHAIN_FILE=\"./cmake/arm-none-eabi.cmake\"",
                 "-DNRF5_SDK_PATH=\"${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad\"",
-                "-DNRF5_SOFTDEVICE=\"none\""
+                "-DNRF5_SOFTDEVICE=\"s130\""
             ],
             "options": {
                 "cwd": "${workspaceFolder}",
