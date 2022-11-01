@@ -6,6 +6,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
 include(nrf5_helper)
 
 nrf5_check_var(NRF5_SDK_PATH)
+nrf5_check_var(NRF5_BOARD)
 nrf5_check_var_2(NRF5_CHIP NRF5_TARGET)
 nrf5_set_defaults(NRF5_TOOLCHAIN "gcc")
 nrf5_set_defaults(NRF5_SD_TOOLCHAIN "armgcc")
@@ -44,6 +45,13 @@ message(STATUS "NRF5 Target: ${NRF5_TARGET}")
 message(STATUS "NRF5 Family: ${NRF5_FAMILY}")
 message(STATUS "NRF5 Variant: ${NRF5_VARIANT}")
 
+# Check board
+if(NOT ${NRF5_BOARD} IN_LIST nrf5_boards)
+    message(FATAL_ERROR "Unsupported board. Pick one of ${nrf5_boards}")
+endif()
+add_compile_options(-D${NRF5_BOARD})
+message(STATUS "NRF5 Board: ${NRF5_BOARD}")
+
 # include target path vars
 include(nrf5_paths_${NRF5_SDK_VERSION})
 
@@ -74,8 +82,9 @@ if(NOT ${NRF5_SOFTDEVICE} IN_LIST nrf5_softdevice_variants)
 endif()
 message(STATUS "NRF5 SoftDevice: ${NRF5_SOFTDEVICE}")
 
-# Set softdevice hexfile
+# If softdevice selected
 if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
+    # set softdevice hex file
     nrf5_check_var(nrf5_softdevice_${NRF5_SOFTDEVICE}_hex)
     set(NRF5_SOFTDEVICE_HEX ${nrf5_softdevice_${NRF5_SOFTDEVICE}_hex})
     get_filename_component(NRF5_SOFTDEVICE_HEXNAME ${NRF5_SOFTDEVICE_HEX} NAME)
@@ -104,10 +113,20 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/nrf5)
 set(NRF5_BASE_TARGET nrf5_${NRF5_CHIP}_base)
 nrf5_base_target(${NRF5_BASE_TARGET} ${NRF5_CHIP} ${NRF5_TARGET} ${NRF5_FAMILY} )
 
+# create board target
+nrf5_create_object(${NRF5_CHIP} nrf5_boards)
+target_link_libraries(${NRF5_BASE_TARGET} nrf5_boards)
+
 # Create softdevice and link to base target and set hex path
-nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_${NRF5_SOFTDEVICE})
 set(NRF5_SOFTDEVICE_TARGET nrf5_softdevice_${NRF5_SOFTDEVICE})
+nrf5_create_object(${NRF5_CHIP} ${NRF5_SOFTDEVICE_TARGET})
 target_link_libraries(${NRF5_BASE_TARGET} ${NRF5_SOFTDEVICE_TARGET})
+
+# If softdevice is not none, link softdevice handler
+if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
+    nrf5_create_object(${NRF5_CHIP} nrf5_softdevice_softdevice_handler)
+    target_link_libraries(${NRF5_BASE_TARGET} nrf5_softdevice_softdevice_handler)
+endif()
 
 # create driver targets
 foreach(tgt ${nrf5_drivers})
@@ -117,6 +136,11 @@ endforeach()
 # create library targets
 foreach(tgt ${nrf5_libraries})
     nrf5_create_object(${NRF5_CHIP} nrf5_library_${tgt})
+endforeach()
+
+# create ble targets
+foreach(tgt ${nrf5_ble})
+    nrf5_create_object(${NRF5_CHIP} nrf5_ble_${tgt})
 endforeach()
 
 # Revert *_OUTPUT_DIRECTORY back

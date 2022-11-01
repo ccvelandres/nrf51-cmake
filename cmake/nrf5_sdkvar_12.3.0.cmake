@@ -1,6 +1,9 @@
 
 include_guard(GLOBAL)
 
+# define supported toolchains
+set(nrf5_toolchains gcc)
+
 # default targets per chip
 set(nrf5_chip_nrf51422 nrf51422_xxaa ) 
 set(nrf5_chip_nrf51802 nrf51422_xxaa )
@@ -16,6 +19,24 @@ set(nrf5_chip_nrf51422_xxaa nrf51422 nrf51 nrf51422_xxaa xxaa )
 set(nrf5_chip_nrf51802_xxaa nrf51802 nrf51 nrf51422_xxaa xxaa )
 set(nrf5_chip_nrf51822_xxaa nrf51822 nrf51 nrf51822_xxaa xxaa )
 set(nrf5_chip_nrf52832_xxaa nrf52832 nrf52 nrf52832_xxaa xxaa )
+
+# supported boards
+set(nrf5_boards
+    BOARD_NRF6310
+    BOARD_PCA10000
+    BOARD_PCA10001
+    BOARD_PCA10002
+    BOARD_PCA10003
+    BOARD_PCA20006
+    BOARD_PCA10028
+    BOARD_PCA10031
+    BOARD_PCA10036
+    BOARD_PCA10040
+    BOARD_PCA10056
+    BOARD_WT51822
+    BOARD_N5DK1
+    BOARD_ARDUINO_PRIMO
+    BOARD_CUSTOM)
 
 # cflags for target/family
 set(nrf5_cflags )
@@ -33,9 +54,6 @@ set(nrf5_defines_nrf51822_xxaa "-DNRF51822_XXAA" )
 
 # define supported softdevice for this sdk version
 set(nrf5_softdevice_variants none s130 s132 s212 s332)
-
-# define supported toolchains
-set(nrf5_toolchains gcc)
 
 # list of drivers for this sdk version
 set(nrf5_drivers
@@ -78,6 +96,9 @@ set(nrf5_libraries
     block_dev
     bootloader
     bsp
+    bsp_ant
+    bsp_ble
+    bsp_nfc
     button
     crc16
     crc32
@@ -92,6 +113,9 @@ set(nrf5_libraries
     fstorage
     gpiote
     hardfault
+    hardfault_gcc
+    hardfault_iar
+    hardfault_keil
     hci
     ic_info
     led_softblink
