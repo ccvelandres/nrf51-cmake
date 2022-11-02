@@ -192,6 +192,15 @@ set(nrf5_library_bsp_dep
     nrf5_library_button)
 set(nrf5_library_bsp_def )
 
+# bsp_btn_ble
+set(nrf5_library_bsp_btn_ble_src 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/bsp/bsp_btn_ble.c)
+set(nrf5_library_bsp_btn_ble_inc 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/bsp)
+set(nrf5_library_bsp_btn_ble_dep 
+    nrf5_library_bsp)
+set(nrf5_library_bsp_btn_ble_def )
+
 # bsp_nfc
 set(nrf5_library_bsp_nfc_src 
     ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/bsp/bsp_nfc.c)
@@ -212,6 +221,26 @@ set(nrf5_library_button_dep
     nrf5_library_timer)
 set(nrf5_library_button_def )
 
+# fds
+set(nrf5_library_fds_src 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/fds/fds.c)
+set(nrf5_library_fds_inc 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/fds)
+set(nrf5_library_fds_dep 
+    nrf5_library_util
+    nrf5_library_fstorage)
+set(nrf5_library_fds_def )
+
+# fstorage
+set(nrf5_library_fstorage_src 
+    $<IF:$<STREQUAL:${NRF5_SOFTDEVICE},none>,${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/fstorage/fstorage_nosd.c,${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/fstorage/fstorage.c>)
+set(nrf5_library_fstorage_inc 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/fstorage)
+set(nrf5_library_fstorage_dep 
+    nrf5_library_util
+    nrf5_library_section_vars)
+set(nrf5_library_fstorage_def )
+
 # hardfault
 set(nrf5_library_hardfault_src 
     ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/hardfault/hardfault_implementation.c)
@@ -221,7 +250,7 @@ set(nrf5_library_hardfault_dep
     nrf5_library_hardfault_${NRF5_TOOLCHAIN})
 set(nrf5_library_hardfault_def )
 
-# hardfault
+# hardfault gcc
 set(nrf5_library_hardfault_gcc_src 
     ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/hardfault/${NRF5_FAMILY}/handler/hardfault_handler_gcc.c)
 set(nrf5_library_hardfault_gcc_inc 
@@ -249,6 +278,21 @@ set(nrf5_library_scheduler_inc
 set(nrf5_library_scheduler_dep )
 set(nrf5_library_scheduler_def )
 
+# section_vars
+set(nrf5_library_section_vars_src )
+set(nrf5_library_section_vars_inc 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/experimental_section_vars)
+set(nrf5_library_section_vars_dep )
+set(nrf5_library_section_vars_def )
+
+# sensorsim
+set(nrf5_library_sensorsim_src 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/sensorsim/sensorsim.c)
+set(nrf5_library_sensorsim_inc 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/sensorsim)
+set(nrf5_library_sensorsim_dep )
+set(nrf5_library_sensorsim_def )
+
 # timer
 set(nrf5_library_timer_src 
     ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/timer/app_timer.c)
@@ -258,6 +302,16 @@ set(nrf5_library_timer_dep
 nrf5_library_util
 nrf5_driver_delay)
 set(nrf5_library_timer_def )
+
+# timersh
+set(nrf5_library_timersh_src 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/timer/app_timer_appsh.c)
+set(nrf5_library_timersh_inc 
+    ${NRF5_SDK_COMPONENTS_LIBRARIES_PATH}/timer)
+set(nrf5_library_timersh_dep 
+nrf5_library_util
+nrf5_driver_delay)
+set(nrf5_library_timersh_def )
 
 # uart
 set(nrf5_library_uart_src 
@@ -295,22 +349,82 @@ set(nrf5_ble_common_src
     ${NRF5_SDK_COMPONENTS_BLE_PATH}/common/ble_srv_common.c)
 set(nrf5_ble_common_inc 
     ${NRF5_SDK_COMPONENTS_BLE_PATH}/common)
-set(nrf5_ble_common_def )
 set(nrf5_ble_common_dep 
     nrf5_library_util
     nrf5_library_timer
     ${NRF5_SOFTDEVICE_TARGET})
+set(nrf5_ble_common_def )
 
+# ble_advertising
+set(nrf5_ble_ble_advertising_src 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_advertising/ble_advertising.c)
+set(nrf5_ble_ble_advertising_inc 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_advertising)
+set(nrf5_ble_ble_advertising_dep 
+    nrf5_ble_common
+    nrf5_library_fstorage)
+set(nrf5_ble_ble_advertising_def )
+    
+# peer_manager
+set(nrf5_ble_peer_manager_src 
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/gatt_cache_manager.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/gatts_cache_manager.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/id_manager.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/peer_data_storage.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/peer_data.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/peer_database.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/peer_id.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/peer_manager.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/pm_buffer.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/pm_mutex.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/security_dispatcher.c
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager/security_manager.c)
+set(nrf5_ble_peer_manager_inc 
+${NRF5_SDK_COMPONENTS_BLE_PATH}/peer_manager)
+set(nrf5_ble_peer_manager_dep 
+    nrf5_library_fds
+    nrf5_ble_common)
+set(nrf5_ble_peer_manager_def )
+
+################################################################
+# NRF5 BLE Services
+
+# bas
+set(nrf5_ble_service_bas_src 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_services/ble_bas/ble_bas.c)
+set(nrf5_ble_service_bas_inc 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_services/ble_bas)
+set(nrf5_ble_service_bas_dep 
+    nrf5_ble_common)
+set(nrf5_ble_service_bas_def )
+
+# dis
+set(nrf5_ble_service_dis_src 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_services/ble_dis/ble_dis.c)
+set(nrf5_ble_service_dis_inc 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_services/ble_dis)
+set(nrf5_ble_service_dis_dep 
+    nrf5_ble_common)
+set(nrf5_ble_service_dis_def )
+
+# hids
+set(nrf5_ble_service_hids_src 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_services/ble_hids/ble_hids.c)
+set(nrf5_ble_service_hids_inc 
+    ${NRF5_SDK_COMPONENTS_BLE_PATH}/ble_services/ble_hids)
+set(nrf5_ble_service_hids_dep 
+    nrf5_ble_common)
+set(nrf5_ble_service_hids_def )
 
 
 # set(nrf5_ble_common_src )
 # set(nrf5_ble_common_inc )
-# set(nrf5_ble_common_def )
 # set(nrf5_ble_common_dep )
+# set(nrf5_ble_common_def )
 
 # set(nrf5_driver_clock_src )
 # set(nrf5_driver_clock_inc )
-# set(nrf5_driver_clock_def )
 # set(nrf5_driver_clock_dep )
+# set(nrf5_driver_clock_def )
 
 

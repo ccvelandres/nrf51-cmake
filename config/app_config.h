@@ -1,0 +1,1 @@
+#define NRF_LOG_ENABLED 0

@@ -13,7 +13,7 @@
  
 
 #ifndef BLE_ADVERTISING_ENABLED
-#define BLE_ADVERTISING_ENABLED 0
+#define BLE_ADVERTISING_ENABLED 1
 #endif
 
 // <q> BLE_DTM_ENABLED  - ble_dtm - Module for testing RF/PHY using DTM commands
@@ -41,7 +41,7 @@
  
 
 #ifndef PEER_MANAGER_ENABLED
-#define PEER_MANAGER_ENABLED 0
+#define PEER_MANAGER_ENABLED 1
 #endif
 
 // </h> 
@@ -75,7 +75,7 @@
  
 
 #ifndef BLE_BAS_ENABLED
-#define BLE_BAS_ENABLED 0
+#define BLE_BAS_ENABLED 1
 #endif
 
 // <q> BLE_CSCS_ENABLED  - ble_cscs - Cycling Speed and Cadence Service
@@ -96,7 +96,7 @@
  
 
 #ifndef BLE_DIS_ENABLED
-#define BLE_DIS_ENABLED 0
+#define BLE_DIS_ENABLED 1
 #endif
 
 // <q> BLE_GLS_ENABLED  - ble_gls - Glucose Service
@@ -110,7 +110,7 @@
  
 
 #ifndef BLE_HIDS_ENABLED
-#define BLE_HIDS_ENABLED 0
+#define BLE_HIDS_ENABLED 1
 #endif
 
 // <e> BLE_HRS_C_ENABLED - ble_hrs_c - Heart Rate Service Client
@@ -2942,7 +2942,7 @@
 // <e> APP_SCHEDULER_ENABLED - app_scheduler - Events scheduler
 //==========================================================
 #ifndef APP_SCHEDULER_ENABLED
-#define APP_SCHEDULER_ENABLED 0
+#define APP_SCHEDULER_ENABLED 1
 #endif
 #if  APP_SCHEDULER_ENABLED
 // <q> APP_SCHEDULER_WITH_PAUSE  - Enabling pause feature
@@ -3058,7 +3058,7 @@
  
 
 #ifndef CRC16_ENABLED
-#define CRC16_ENABLED 0
+#define CRC16_ENABLED 1
 #endif
 
 // <q> CRC32_ENABLED  - crc32 - CRC32 calculation routines
@@ -3078,7 +3078,7 @@
 // <e> FDS_ENABLED - fds - Flash data storage module
 //==========================================================
 #ifndef FDS_ENABLED
-#define FDS_ENABLED 0
+#define FDS_ENABLED 1
 #endif
 #if  FDS_ENABLED
 // <o> FDS_OP_QUEUE_SIZE - Size of the internal queue. 
@@ -3126,7 +3126,7 @@
 // <e> FSTORAGE_ENABLED - fstorage - Flash storage module
 //==========================================================
 #ifndef FSTORAGE_ENABLED
-#define FSTORAGE_ENABLED 0
+#define FSTORAGE_ENABLED 1
 #endif
 #if  FSTORAGE_ENABLED
 // <o> FS_QUEUE_SIZE - Configures the size of the internal queue. 
@@ -3231,22 +3231,22 @@
 
 // <o> HCI_UART_RX_PIN - UART RX pin 
 #ifndef HCI_UART_RX_PIN
-#define HCI_UART_RX_PIN 31
+#define HCI_UART_RX_PIN 11
 #endif
 
 // <o> HCI_UART_TX_PIN - UART TX pin 
 #ifndef HCI_UART_TX_PIN
-#define HCI_UART_TX_PIN 31
+#define HCI_UART_TX_PIN 9
 #endif
 
 // <o> HCI_UART_RTS_PIN - UART RTS pin 
 #ifndef HCI_UART_RTS_PIN
-#define HCI_UART_RTS_PIN 31
+#define HCI_UART_RTS_PIN 8
 #endif
 
 // <o> HCI_UART_CTS_PIN - UART CTS pin 
 #ifndef HCI_UART_CTS_PIN
-#define HCI_UART_CTS_PIN 31
+#define HCI_UART_CTS_PIN 10
 #endif
 
 #endif //HCI_SLIP_ENABLED
@@ -3544,7 +3544,7 @@
 // <4=> Debug 
 
 #ifndef NRF_LOG_DEFAULT_LEVEL
-#define NRF_LOG_DEFAULT_LEVEL 3
+#define NRF_LOG_DEFAULT_LEVEL 2
 #endif
 
 // <e> NRF_LOG_DEFERRED - Enable deffered logger.
@@ -3620,27 +3620,27 @@
 // <268435456=> 57600 baud 
 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_BAUDRATE
-#define NRF_LOG_BACKEND_SERIAL_UART_BAUDRATE 30924800
+#define NRF_LOG_BACKEND_SERIAL_UART_BAUDRATE 230400
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_TX_PIN - UART TX pin 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_TX_PIN
-#define NRF_LOG_BACKEND_SERIAL_UART_TX_PIN 31
+#define NRF_LOG_BACKEND_SERIAL_UART_TX_PIN 21
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_RX_PIN - UART RX pin 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_RX_PIN
-#define NRF_LOG_BACKEND_SERIAL_UART_RX_PIN 31
+#define NRF_LOG_BACKEND_SERIAL_UART_RX_PIN 23
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_RTS_PIN - UART RTS pin 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_RTS_PIN
-#define NRF_LOG_BACKEND_SERIAL_UART_RTS_PIN 31
+#define NRF_LOG_BACKEND_SERIAL_UART_RTS_PIN 8
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_CTS_PIN - UART CTS pin 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_CTS_PIN
-#define NRF_LOG_BACKEND_SERIAL_UART_CTS_PIN 31
+#define NRF_LOG_BACKEND_SERIAL_UART_CTS_PIN 10
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_FLOW_CONTROL  - Hardware Flow Control

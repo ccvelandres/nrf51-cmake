@@ -16,9 +16,39 @@
                 "-DNRF5_SOFTDEVICE=\"s130\""
             ],
             "options": {
-                "cwd": "${workspaceFolder}",
+                "cwd": "${workspaceFolder}"
             },
             "group": "build"
+        },
+        {
+            "label": "flash_binary",
+            "type": "shell",
+            "command": "gdb-multiarch",
+            "args": [
+                "-ex", "tar ext /dev/ttyACM0",
+                "-ex", "file ${input:binaryFile}",
+                "-ex", "mon tpwr enable",
+                "-ex", "mon swdp_scan",
+                "-ex", "attach 1",
+                "-ex", "load",
+                "-ex", "compare-sections",
+                "-ex", "detach",
+                "-ex", "mon tpwr disable",
+                "-ex", "q"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "none",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "binaryFile",
+            "type": "promptString",
+            "default": "build/main",
+            "description": "Binary File to Flash"
         }
     ]
 }

@@ -143,6 +143,11 @@ foreach(tgt ${nrf5_ble})
     nrf5_create_object(${NRF5_CHIP} nrf5_ble_${tgt})
 endforeach()
 
+# create ble services targets
+foreach(tgt ${nrf5_ble_services})
+    nrf5_create_object(${NRF5_CHIP} nrf5_ble_service_${tgt})
+endforeach()
+
 # Revert *_OUTPUT_DIRECTORY back
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${_CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${_CMAKE_ARCHIVE_OUTPUT_DIRECTORY})

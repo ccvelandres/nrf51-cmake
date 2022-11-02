@@ -96,8 +96,8 @@ set(nrf5_libraries
     block_dev
     bootloader
     bsp
-    bsp_ant
-    bsp_ble
+    bsp_btn_ant
+    bsp_btn_ble
     bsp_nfc
     button
     crc16
@@ -128,12 +128,14 @@ set(nrf5_libraries
     queue
     scheduler
     sdcard
+    section_vars
     sensorsim
     sha256
     simple_timer
     slip
     svc
     timer
+    timersh
     twi
     uart
     usbd
@@ -156,7 +158,33 @@ set(nrf5_ble
     ble_error_log
     ble_racp
     ble_radio_notification
-    ble_services
     nrf_ble_gatt
     nrf_ble_qwr
     peer_manager)
+
+set(nrf5_ble_services
+    ancs_c
+    ans_c
+    bas
+    bas_c
+    bps
+    cscs
+    cts_c
+    dfu
+    dis
+    escs
+    gls
+    hids
+    hrs
+    hrs_c
+    hts
+    ias
+    ias_c
+    lbs
+    lbs_c
+    lls
+    nus
+    nus_c
+    rscs
+    rscs_c
+    tps)
