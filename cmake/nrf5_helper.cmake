@@ -217,6 +217,7 @@ function(nrf5_setup_exe target)
     target_link_libraries(${target} PRIVATE ${NRF5_BASE_TARGET})
     target_link_options(${target} PRIVATE
         "-T${NRF5_LINKER_SCRIPT}"
+        "-Wl,--print-memory-usage"
         "-Wl,-Map=$<TARGET_FILE_DIR:${target}>/$<TARGET_NAME:${target}>.map")
 
     # Post build commands

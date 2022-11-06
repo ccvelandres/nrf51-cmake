@@ -4,13 +4,14 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
+            "label": "configure",
             "type": "shell",
             "command": "cmake",
             "args": [
                 "-DCMAKE_BUILD_TYPE=Debug",
                 "-Bbuild",
                 "-DNRF5_TARGET=nrf51822_xxaa",
+                "-DNRF5_BOARD=BOARD_CUSTOM",
                 "-DCMAKE_TOOLCHAIN_FILE=\"./cmake/arm-none-eabi.cmake\"",
                 "-DNRF5_SDK_PATH=\"${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad\"",
                 "-DNRF5_SOFTDEVICE=\"s130\""
@@ -21,20 +22,51 @@
             "group": "build"
         },
         {
+            "label": "build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "build",
+                "--parallel",
+                "-t",
+                "all"
+            ],
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "configure"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "flash_binary",
             "type": "shell",
             "command": "gdb-multiarch",
             "args": [
-                "-ex", "tar ext /dev/ttyACM0",
-                "-ex", "file ${input:binaryFile}",
-                "-ex", "mon tpwr enable",
-                "-ex", "mon swdp_scan",
-                "-ex", "attach 1",
-                "-ex", "load",
-                "-ex", "compare-sections",
-                "-ex", "detach",
-                "-ex", "mon tpwr disable",
-                "-ex", "q"
+                "-ex",
+                "tar ext /dev/ttyACM0",
+                "-ex",
+                "file ${input:binaryFile}",
+                "-ex",
+                "mon tpwr enable",
+                "-ex",
+                "mon swdp_scan",
+                "-ex",
+                "attach 1",
+                "-ex",
+                "load",
+                "-ex",
+                "compare-sections",
+                "-ex",
+                "detach",
+                "-ex",
+                "mon tpwr disable",
+                "-ex",
+                "q"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
