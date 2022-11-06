@@ -39,11 +39,11 @@ set(nrf5_boards
     BOARD_CUSTOM)
 
 # cflags for target/family
-set(nrf5_cflags )
+set(nrf5_cflags "-fstack-check" "-fstack-usage" )
 set(nrf5_cflags_nrf51822 -mcpu=cortex-m0 -mfloat-abi=soft )
 
 # ld flags for target/family
-set(nrf5_ldflags )
+set(nrf5_ldflags "-fcallgraph-info")
 set(nrf5_ldflags_nrf51822 -mcpu=cortex-m0 )
 
 # defines per target/family

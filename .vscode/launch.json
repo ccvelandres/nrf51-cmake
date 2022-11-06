@@ -11,8 +11,7 @@
             "gdbPath": "gdb-multiarch",
             "device": "NRF51822",
             "powerOverBMP": "enable",
-            "svdFile": "/home/stempanerd/nrf/nrf51SDK/nRF5_SDK_12.3.0_d7731ad/svd/nrf51.svd",
-            "BMPGDBSerialPort": "/dev/ttyACM0",
+            "svdFile": "${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad/svd/nrf51.svd",
             "preRestartCommands": [
                 "enable breakpoint",
                 "break main"
@@ -29,7 +28,7 @@
             "gdbPath": "gdb-multiarch",
             "device": "NRF51822",
             "powerOverBMP": "enable",
-            "svdFile": "/home/stempanerd/nrf/nrf51SDK/nRF5_SDK_12.3.0_d7731ad/svd/nrf51.svd",
+            "svdFile": "${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad/svd/nrf51.svd",
             "runToEntryPoint": "main",
             "BMPGDBSerialPort": "/dev/ttyACM0",
             "preRestartCommands": [

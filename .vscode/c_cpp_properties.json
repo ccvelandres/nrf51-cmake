@@ -7,7 +7,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${env:NRF51_SDK_PATH}/components/**"
+                "${workspaceFolder}/config"
             ],
             "defines": [],
             "compilerPath": "/bin/arm-none-eabi-gcc",

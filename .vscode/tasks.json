@@ -71,6 +71,10 @@
             "options": {
                 "cwd": "${workspaceFolder}"
             },
+            "dependsOn": [
+                "build"
+            ],
+            "dependsOrder": "sequence",
             "group": "none",
             "problemMatcher": []
         }
