@@ -1159,11 +1159,25 @@ static void ble_stack_init(void)
     // Initialize the SoftDevice handler module.
     SOFTDEVICE_HANDLER_APPSH_INIT(&clock_lf_cfg, true);
 
-    ble_enable_params_t ble_enable_params;
-    err_code = softdevice_enable_get_default_config(CENTRAL_LINK_COUNT,
-                                                    PERIPHERAL_LINK_COUNT,
-                                                    &ble_enable_params);
-    APP_ERROR_CHECK(err_code);
+    ble_enable_params_t ble_enable_params = 
+    {
+        .common_enable_params = 
+        {
+            .vs_uuid_count = 0,
+            .p_conn_bw_counts = NULL
+        },
+        .gap_enable_params =
+        {
+            .central_conn_count = CENTRAL_LINK_COUNT,
+            .periph_conn_count = PERIPHERAL_LINK_COUNT,
+            .central_sec_count = 0
+        },
+        .gatts_enable_params =
+        {
+            .attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT,
+            .service_changed = 0
+        }
+    };
 
     // Check the ram settings against the used number of links
     CHECK_RAM_START_ADDR(CENTRAL_LINK_COUNT, PERIPHERAL_LINK_COUNT);
