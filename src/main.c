@@ -67,11 +67,9 @@
 #include "ble_advertising.h"
 #include "ble_advdata.h"
 #include "ble_hids.h"
-#include "ble_bas.h"
 #include "ble_dis.h"
 #include "ble_conn_params.h"
 #include "bsp.h"
-#include "sensorsim.h"
 #include "bsp_btn_ble.h"
 #include "app_scheduler.h"
 #include "softdevice_handler_appsh.h"
@@ -108,11 +106,6 @@
 
 #define APP_TIMER_PRESCALER              0                                          /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_OP_QUEUE_SIZE          4                                          /**< Size of timer operation queues. */
-
-#define BATTERY_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER) /**< Battery level measurement interval (ticks). */
-#define MIN_BATTERY_LEVEL                81                                         /**< Minimum simulated battery level. */
-#define MAX_BATTERY_LEVEL                100                                        /**< Maximum simulated battery level. */
-#define BATTERY_LEVEL_INCREMENT          1                                          /**< Increment between each simulated battery level measurement. */
 
 #define PNP_ID_VENDOR_ID_SOURCE          0x02                                       /**< Vendor ID Source. */
 #define PNP_ID_VENDOR_ID                 0x1915                                     /**< Vendor ID. */
@@ -174,35 +167,6 @@
 
 #define MAX_KEYS_IN_ONE_REPORT           (INPUT_REPORT_KEYS_MAX_LEN - SCAN_CODE_POS) /**< Maximum number of key presses that can be sent in one Input Report. */
 
-
-/**Buffer queue access macros
- *
- * @{ */
-/** Initialization of buffer list */
-#define BUFFER_LIST_INIT()     \
-    do                         \
-    {                          \
-        buffer_list.rp    = 0; \
-        buffer_list.wp    = 0; \
-        buffer_list.count = 0; \
-    } while (0)
-
-/** Provide status of data list is full or not */
-#define BUFFER_LIST_FULL() \
-    ((MAX_BUFFER_ENTRIES == buffer_list.count - 1) ? true : false)
-
-/** Provides status of buffer list is empty or not */
-#define BUFFER_LIST_EMPTY() \
-    ((0 == buffer_list.count) ? true : false)
-
-#define BUFFER_ELEMENT_INIT(i)                 \
-    do                                         \
-    {                                          \
-        buffer_list.buffer[(i)].p_data = NULL; \
-    } while (0)
-
-/** @} */
-
 typedef enum
 {
     BLE_NO_ADV,             /**< No advertising running. */
@@ -213,37 +177,10 @@ typedef enum
     BLE_SLEEP,              /**< Go to system-off. */
 } ble_advertising_mode_t;
 
-/** Abstracts buffer element */
-typedef struct hid_key_buffer
-{
-    uint8_t      data_offset; /**< Max Data that can be buffered for all entries */
-    uint8_t      data_len;    /**< Total length of data */
-    uint8_t    * p_data;      /**< Scanned key pattern */
-    ble_hids_t * p_instance;  /**< Identifies peer and service instance */
-} buffer_entry_t;
-
-STATIC_ASSERT(sizeof(buffer_entry_t) % 4 == 0);
-
-/** Circular buffer list */
-typedef struct
-{
-    buffer_entry_t buffer[MAX_BUFFER_ENTRIES]; /**< Maximum number of entries that can enqueued in the list */
-    uint8_t        rp;                         /**< Index to the read location */
-    uint8_t        wp;                         /**< Index to write location */
-    uint8_t        count;                      /**< Number of elements in the list */
-} buffer_list_t;
-
-STATIC_ASSERT(sizeof(buffer_list_t) % 4 == 0);
 
 static ble_hids_t m_hids;                                   /**< Structure used to identify the HID service. */
-static ble_bas_t  m_bas;                                    /**< Structure used to identify the battery service. */
 static bool       m_in_boot_mode = false;                   /**< Current protocol mode. */
 static uint16_t   m_conn_handle  = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
-
-static sensorsim_cfg_t   m_battery_sim_cfg;                 /**< Battery Level sensor simulator configuration. */
-static sensorsim_state_t m_battery_sim_state;               /**< Battery Level sensor simulator state. */
-
-APP_TIMER_DEF(m_battery_timer_id);                          /**< Battery timer. */
 
 static pm_peer_id_t m_peer_id;                              /**< Device reference handle to the current bonded central. */
 static bool         m_caps_on = false;                      /**< Variable to indicate if Caps Lock is turned on. */
@@ -283,10 +220,6 @@ static uint8_t m_caps_off_key_scan_str[] = /**< Key pattern to be sent when the 
     0x12,                                  /* Key o */
     0x09,                                  /* Key f */
 };
-
-
-/** List to enqueue not just data to be sent, but also related information like the handle, connection handle etc */
-static buffer_list_t buffer_list;
 
 static void on_hids_evt(ble_hids_t * p_hids, ble_hids_evt_t * p_evt);
 
@@ -502,49 +435,14 @@ static void ble_advertising_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
-/**@brief Function for handling the Battery measurement timer timeout.
- *
- * @details This function will be called each time the battery level measurement timer expires.
- *
- * @param[in]   p_context   Pointer used for passing some arbitrary information (context) from the
- *                          app_start_timer() call to the timeout handler.
- */
-static void battery_level_meas_timeout_handler(void * p_context)
-{
-    UNUSED_PARAMETER(p_context);
-    uint32_t err_code;
-    uint8_t  battery_level;
-
-    battery_level = (uint8_t)sensorsim_measure(&m_battery_sim_state, &m_battery_sim_cfg);
-
-    err_code = ble_bas_battery_level_update(&m_bas, battery_level);
-    if ((err_code != NRF_SUCCESS) &&
-        (err_code != NRF_ERROR_INVALID_STATE) &&
-        (err_code != BLE_ERROR_NO_TX_PACKETS) &&
-        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
-       )
-    {
-        APP_ERROR_HANDLER(err_code);
-    }
-}
-
-
 /**@brief Function for the Timer initialization.
  *
  * @details Initializes the timer module.
  */
 static void timers_init(void)
 {
-    uint32_t err_code;
-
     // Initialize timer module, making it use the scheduler.
     APP_TIMER_APPSH_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, true);
-
-    // Create battery timer.
-    err_code = app_timer_create(&m_battery_timer_id,
-                                APP_TIMER_MODE_REPEATED,
-                                battery_level_meas_timeout_handler);
-    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -605,32 +503,6 @@ static void dis_init(void)
     err_code = ble_dis_init(&dis_init_obj);
     APP_ERROR_CHECK(err_code);
 }
-
-
-/**@brief Function for initializing Battery Service.
- */
-static void bas_init(void)
-{
-    uint32_t       err_code;
-    ble_bas_init_t bas_init_obj;
-
-    memset(&bas_init_obj, 0, sizeof(bas_init_obj));
-
-    bas_init_obj.evt_handler          = NULL;
-    bas_init_obj.support_notification = true;
-    bas_init_obj.p_report_ref         = NULL;
-    bas_init_obj.initial_batt_level   = 100;
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&bas_init_obj.battery_level_char_attr_md.cccd_write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&bas_init_obj.battery_level_char_attr_md.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&bas_init_obj.battery_level_char_attr_md.write_perm);
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&bas_init_obj.battery_level_report_read_perm);
-
-    err_code = ble_bas_init(&m_bas, &bas_init_obj);
-    APP_ERROR_CHECK(err_code);
-}
-
 
 /**@brief Function for initializing HID Service.
  */
@@ -761,23 +633,8 @@ static void hids_init(void)
 static void services_init(void)
 {
     dis_init();
-    bas_init();
     hids_init();
 }
-
-
-/**@brief Function for initializing the battery sensor simulator.
- */
-static void sensor_simulator_init(void)
-{
-    m_battery_sim_cfg.min          = MIN_BATTERY_LEVEL;
-    m_battery_sim_cfg.max          = MAX_BATTERY_LEVEL;
-    m_battery_sim_cfg.incr         = BATTERY_LEVEL_INCREMENT;
-    m_battery_sim_cfg.start_at_max = true;
-
-    sensorsim_init(&m_battery_sim_state, &m_battery_sim_cfg);
-}
-
 
 /**@brief Function for handling a Connection Parameters error.
  *
@@ -816,10 +673,7 @@ static void conn_params_init(void)
  */
 static void timers_start(void)
 {
-    uint32_t err_code;
-
-    err_code = app_timer_start(m_battery_timer_id, BATTERY_LEVEL_MEAS_INTERVAL, NULL);
-    APP_ERROR_CHECK(err_code);
+    (void) NULL;
 }
 
 
@@ -1273,7 +1127,6 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
     ble_advertising_on_ble_evt(p_ble_evt);
     ble_conn_params_on_ble_evt(p_ble_evt);
     ble_hids_on_ble_evt(&m_hids, p_ble_evt);
-    ble_bas_on_ble_evt(&m_bas, p_ble_evt);
 }
 
 
@@ -1531,16 +1384,14 @@ int main(void)
     ble_stack_init();
     scheduler_init();
     peer_manager_init(erase_bonds);
-    // if (erase_bonds == true)
-    // {
-    //     NRF_LOG_INFO("Bonds erased!\r\n");
-    // }
+    if (erase_bonds == true)
+    {
+        NRF_LOG_INFO("Bonds erased!\r\n");
+    }
     gap_params_init();
     advertising_init();
-    // services_init();
-    // sensor_simulator_init();
+    services_init();
     conn_params_init();
-    // buffer_init();
 
     // // Start execution.
     // NRF_LOG_INFO("HID Keyboard Start!\r\n");

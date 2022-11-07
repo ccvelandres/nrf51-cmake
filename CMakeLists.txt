@@ -25,13 +25,13 @@ target_link_libraries(main PRIVATE
     nrf5_library_fds
     nrf5_library_fstorage
     nrf5_library_hardfault
-    nrf5_library_sensorsim
+    # nrf5_library_sensorsim
     nrf5_library_bsp_nfc
     nrf5_ble_common
     nrf5_ble_ble_advertising
     nrf5_ble_peer_manager
     nrf5_ble_service_hids
-    nrf5_ble_service_bas
+    # nrf5_ble_service_bas
     nrf5_ble_service_dis)
 
 nrf5_create_genexdebug(main)
