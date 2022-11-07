@@ -7,6 +7,7 @@ include(nrf5_helper)
 
 nrf5_check_var(NRF5_SDK_PATH)
 nrf5_check_var(NRF5_BOARD)
+nrf5_check_var(NRF5_CONFIG_DIR)
 nrf5_check_var_2(NRF5_CHIP NRF5_TARGET)
 nrf5_set_defaults(NRF5_TOOLCHAIN "gcc")
 nrf5_set_defaults(NRF5_SD_TOOLCHAIN "armgcc")
@@ -73,7 +74,7 @@ endif()
 if(nrf5_ldflags_${NRF5_CHIP})
     add_link_options(${nrf5_ldflags_${NRF5_CHIP}})
 endif()
-
+include_directories(${NRF5_CONFIG_DIR})
 add_link_options(${nrf5_ld_inc} ${nrf5_ld_${NRF5_TOOLCHAIN}_inc})
 
 # Check SoftDevice support

@@ -502,11 +502,16 @@ static void ble_advertising_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
-
-/**@brief Function for performing a battery measurement, and update the Battery Level characteristic in the Battery Service.
+/**@brief Function for handling the Battery measurement timer timeout.
+ *
+ * @details This function will be called each time the battery level measurement timer expires.
+ *
+ * @param[in]   p_context   Pointer used for passing some arbitrary information (context) from the
+ *                          app_start_timer() call to the timeout handler.
  */
-static void battery_level_update(void)
+static void battery_level_meas_timeout_handler(void * p_context)
 {
+    UNUSED_PARAMETER(p_context);
     uint32_t err_code;
     uint8_t  battery_level;
 
@@ -521,20 +526,6 @@ static void battery_level_update(void)
     {
         APP_ERROR_HANDLER(err_code);
     }
-}
-
-
-/**@brief Function for handling the Battery measurement timer timeout.
- *
- * @details This function will be called each time the battery level measurement timer expires.
- *
- * @param[in]   p_context   Pointer used for passing some arbitrary information (context) from the
- *                          app_start_timer() call to the timeout handler.
- */
-static void battery_level_meas_timeout_handler(void * p_context)
-{
-    UNUSED_PARAMETER(p_context);
-    battery_level_update();
 }
 
 
@@ -925,141 +916,6 @@ static uint32_t send_key_scan_press_release(ble_hids_t * p_hids,
 }
 
 
-/**@brief   Function for initializing the buffer queue used to key events that could not be
- *          transmitted
- *
- * @warning This handler is an example only. You need to analyze how you wish to buffer or buffer at
- *          all.
- *
- * @note    In case of HID keyboard, a temporary buffering could be employed to handle scenarios
- *          where encryption is not yet enabled or there was a momentary link loss or there were no
- *          Transmit buffers.
- */
-static void buffer_init(void)
-{
-    uint32_t buffer_count;
-
-    BUFFER_LIST_INIT();
-
-    for (buffer_count = 0; buffer_count < MAX_BUFFER_ENTRIES; buffer_count++)
-    {
-        BUFFER_ELEMENT_INIT(buffer_count);
-    }
-}
-
-
-/**@brief Function for enqueuing key scan patterns that could not be transmitted either completely
- *        or partially.
- *
- * @warning This handler is an example only. You need to analyze how you wish to send the key
- *          release.
- *
- * @param[in]  p_hids         Identifies the service for which Key Notifications are buffered.
- * @param[in]  p_key_pattern  Pointer to key pattern.
- * @param[in]  pattern_len    Length of key pattern.
- * @param[in]  offset         Offset applied to Key Pattern when requesting a transmission on
- *                            dequeue, @ref buffer_dequeue.
- * @return     NRF_SUCCESS on success, else an error code indicating reason for failure.
- */
-static uint32_t buffer_enqueue(ble_hids_t * p_hids,
-                               uint8_t    * p_key_pattern,
-                               uint16_t     pattern_len,
-                               uint16_t     offset)
-{
-    buffer_entry_t * element;
-    uint32_t         err_code = NRF_SUCCESS;
-
-    if (BUFFER_LIST_FULL())
-    {
-        // Element cannot be buffered.
-        err_code = NRF_ERROR_NO_MEM;
-    }
-    else
-    {
-        // Make entry of buffer element and copy data.
-        element              = &buffer_list.buffer[(buffer_list.wp)];
-        element->p_instance  = p_hids;
-        element->p_data      = p_key_pattern;
-        element->data_offset = offset;
-        element->data_len    = pattern_len;
-
-        buffer_list.count++;
-        buffer_list.wp++;
-
-        if (buffer_list.wp == MAX_BUFFER_ENTRIES)
-        {
-            buffer_list.wp = 0;
-        }
-    }
-
-    return err_code;
-}
-
-
-/**@brief   Function to dequeue key scan patterns that could not be transmitted either completely of
- *          partially.
- *
- * @warning This handler is an example only. You need to analyze how you wish to send the key
- *          release.
- *
- * @param[in]  tx_flag   Indicative of whether the dequeue should result in transmission or not.
- * @note       A typical example when all keys are dequeued with transmission is when link is
- *             disconnected.
- *
- * @return     NRF_SUCCESS on success, else an error code indicating reason for failure.
- */
-static uint32_t buffer_dequeue(bool tx_flag)
-{
-    buffer_entry_t * p_element;
-    uint32_t         err_code = NRF_SUCCESS;
-    uint16_t         actual_len;
-
-    if (BUFFER_LIST_EMPTY())
-    {
-        err_code = NRF_ERROR_NOT_FOUND;
-    }
-    else
-    {
-        bool remove_element = true;
-
-        p_element = &buffer_list.buffer[(buffer_list.rp)];
-
-        if (tx_flag)
-        {
-            err_code = send_key_scan_press_release(p_element->p_instance,
-                                                   p_element->p_data,
-                                                   p_element->data_len,
-                                                   p_element->data_offset,
-                                                   &actual_len);
-            // An additional notification is needed for release of all keys, therefore check
-            // is for actual_len <= element->data_len and not actual_len < element->data_len
-            if ((err_code == BLE_ERROR_NO_TX_PACKETS) && (actual_len <= p_element->data_len))
-            {
-                // Transmission could not be completed, do not remove the entry, adjust next data to
-                // be transmitted
-                p_element->data_offset = actual_len;
-                remove_element         = false;
-            }
-        }
-
-        if (remove_element)
-        {
-            BUFFER_ELEMENT_INIT(buffer_list.rp);
-
-            buffer_list.rp++;
-            buffer_list.count--;
-
-            if (buffer_list.rp == MAX_BUFFER_ENTRIES)
-            {
-                buffer_list.rp = 0;
-            }
-        }
-    }
-
-    return err_code;
-}
-
-
 /**@brief Function for sending sample key presses to the peer.
  *
  * @param[in]   key_pattern_len   Pattern length.
@@ -1075,17 +931,6 @@ static void keys_send(uint8_t key_pattern_len, uint8_t * p_key_pattern)
                                            key_pattern_len,
                                            0,
                                            &actual_len);
-    // An additional notification is needed for release of all keys, therefore check
-    // is for actual_len <= key_pattern_len and not actual_len < key_pattern_len.
-    if ((err_code == BLE_ERROR_NO_TX_PACKETS) && (actual_len <= key_pattern_len))
-    {
-        // Buffer enqueue routine return value is not intentionally checked.
-        // Rationale: Its better to have a a few keys missing than have a system
-        // reset. Recommendation is to work out most optimal value for
-        // MAX_BUFFER_ENTRIES to minimize chances of buffer queue full condition
-        UNUSED_VARIABLE(buffer_enqueue(&m_hids, p_key_pattern, key_pattern_len, actual_len));
-    }
-
 
     if ((err_code != NRF_SUCCESS) &&
         (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -1315,14 +1160,10 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             break; // BLE_GAP_EVT_CONNECTED
 
         case BLE_EVT_TX_COMPLETE:
-            // Send next key event
-            (void) buffer_dequeue(true);
             break; // BLE_EVT_TX_COMPLETE
 
         case BLE_GAP_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected\r\n");
-            // Dequeue all keys without transmission.
-            (void) buffer_dequeue(false);
 
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
@@ -1647,7 +1488,7 @@ static void advertising_init(void)
  *
  * @param[out] p_erase_bonds  Will be true if the clear bonding button was pressed to wake the application up.
  */
-static void buttons_leds_init(bool * p_erase_bonds)
+static void app_bsp_init(bool * p_erase_bonds)
 {
     bsp_event_t startup_event;
 
@@ -1686,23 +1527,23 @@ int main(void)
     APP_ERROR_CHECK(err_code);
 
     timers_init();
-    buttons_leds_init(&erase_bonds);
+    app_bsp_init(&erase_bonds);
     ble_stack_init();
     scheduler_init();
     peer_manager_init(erase_bonds);
-    if (erase_bonds == true)
-    {
-        NRF_LOG_INFO("Bonds erased!\r\n");
-    }
+    // if (erase_bonds == true)
+    // {
+    //     NRF_LOG_INFO("Bonds erased!\r\n");
+    // }
     gap_params_init();
     advertising_init();
-    services_init();
-    sensor_simulator_init();
+    // services_init();
+    // sensor_simulator_init();
     conn_params_init();
-    buffer_init();
+    // buffer_init();
 
-    // Start execution.
-    NRF_LOG_INFO("HID Keyboard Start!\r\n");
+    // // Start execution.
+    // NRF_LOG_INFO("HID Keyboard Start!\r\n");
     timers_start();
     advertising_start();
 

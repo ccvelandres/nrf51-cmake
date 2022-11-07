@@ -2712,7 +2712,7 @@
 // <3=> 3 
 
 #ifndef UART_DEFAULT_CONFIG_IRQ_PRIORITY
-#define UART_DEFAULT_CONFIG_IRQ_PRIORITY 3
+#define UART_DEFAULT_CONFIG_IRQ_PRIORITY 2
 #endif
 
 // <q> UART_EASY_DMA_SUPPORT  - Driver supporting EasyDMA
@@ -2726,7 +2726,7 @@
  
 
 #ifndef UART_LEGACY_SUPPORT
-#define UART_LEGACY_SUPPORT 1
+#define UART_LEGACY_SUPPORT 0
 #endif
 
 // <e> UART0_ENABLED - Enable UART0 instance
@@ -3544,7 +3544,7 @@
 // <4=> Debug 
 
 #ifndef NRF_LOG_DEFAULT_LEVEL
-#define NRF_LOG_DEFAULT_LEVEL 2
+#define NRF_LOG_DEFAULT_LEVEL 3
 #endif
 
 // <e> NRF_LOG_DEFERRED - Enable deffered logger.
@@ -3552,7 +3552,7 @@
 // <i> Log data is buffered and can be processed in idle.
 //==========================================================
 #ifndef NRF_LOG_DEFERRED
-#define NRF_LOG_DEFERRED 1
+#define NRF_LOG_DEFERRED 0
 #endif
 #if  NRF_LOG_DEFERRED
 // <o> NRF_LOG_DEFERRED_BUFSIZE - Size of the buffer for logs in words. 
@@ -3584,7 +3584,7 @@
 // <i> Logger backend RAM usage is determined by this value.
 
 #ifndef NRF_LOG_BACKEND_MAX_STRING_LENGTH
-#define NRF_LOG_BACKEND_MAX_STRING_LENGTH 256
+#define NRF_LOG_BACKEND_MAX_STRING_LENGTH 64
 #endif
 
 // <o> NRF_LOG_TIMESTAMP_DIGITS - Number of digits for timestamp 
@@ -3620,17 +3620,17 @@
 // <268435456=> 57600 baud 
 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_BAUDRATE
-#define NRF_LOG_BACKEND_SERIAL_UART_BAUDRATE 115200
+#define NRF_LOG_BACKEND_SERIAL_UART_BAUDRATE 30924800
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_TX_PIN - UART TX pin 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_TX_PIN
-#define NRF_LOG_BACKEND_SERIAL_UART_TX_PIN 21
+#define NRF_LOG_BACKEND_SERIAL_UART_TX_PIN 23
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_RX_PIN - UART RX pin 
 #ifndef NRF_LOG_BACKEND_SERIAL_UART_RX_PIN
-#define NRF_LOG_BACKEND_SERIAL_UART_RX_PIN 23
+#define NRF_LOG_BACKEND_SERIAL_UART_RX_PIN 21
 #endif
 
 // <o> NRF_LOG_BACKEND_SERIAL_UART_RTS_PIN - UART RTS pin 

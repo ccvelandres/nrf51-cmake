@@ -37,8 +37,8 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  */
-#ifndef PCA20006_H
-#define PCA20006_H
+#ifndef CUSTOM_BOARD_H
+#define CUSTOM_BOARD_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,9 +49,9 @@ extern "C" {
 // LEDs and buttons definition for PCA20006 board (beacon)
 #define LEDS_NUMBER    3
 
-#define LED_RGB_RED    16
-#define LED_RGB_GREEN  12
-#define LED_RGB_BLUE   15
+#define LED_RGB_RED    25
+#define LED_RGB_GREEN  27
+#define LED_RGB_BLUE   29
 
 #define LEDS_ACTIVE_STATE 0
 
@@ -63,8 +63,8 @@ extern "C" {
 
 #define LEDS_INV_MASK  LEDS_MASK
 
-#define BUTTON_0       8
-#define BUTTON_1       18
+#define BUTTON_0       24
+#define BUTTON_1       26
 #define BUTTON_PULL    NRF_GPIO_PIN_PULLUP
 
 #define BUTTONS_ACTIVE_STATE 0

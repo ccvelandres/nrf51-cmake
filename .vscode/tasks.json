@@ -12,6 +12,7 @@
                 "-Bbuild",
                 "-DNRF5_TARGET=nrf51822_xxaa",
                 "-DNRF5_BOARD=BOARD_CUSTOM",
+                "-DNRF5_CONFIG_DIR=\"${workspaceFolder}/config\"",
                 "-DCMAKE_TOOLCHAIN_FILE=\"./cmake/arm-none-eabi.cmake\"",
                 "-DNRF5_SDK_PATH=\"${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad\"",
                 "-DNRF5_SOFTDEVICE=\"s130\""
@@ -47,10 +48,12 @@
             "type": "shell",
             "command": "gdb-multiarch",
             "args": [
+                "--batch",
+                "-se=build/main",
                 "-ex",
                 "tar ext /dev/ttyACM0",
                 "-ex",
-                "file ${input:binaryFile}",
+                "mon connect_srst e",
                 "-ex",
                 "mon tpwr enable",
                 "-ex",
@@ -77,14 +80,36 @@
             "dependsOrder": "sequence",
             "group": "none",
             "problemMatcher": []
-        }
-    ],
-    "inputs": [
+        },
         {
-            "id": "binaryFile",
-            "type": "promptString",
-            "default": "build/main",
-            "description": "Binary File to Flash"
+            "label": "enable_power",
+            "type": "shell",
+            "command": "gdb-multiarch",
+            "args": [
+                "--batch",
+                "-ex",
+                "tar ext /dev/ttyACM0",
+                "-ex",
+                "mon tpwr e",
+                "-ex",
+                "q"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "disable_power",
+            "type": "shell",
+            "command": "gdb-multiarch",
+            "args": [
+                "--batch",
+                "-ex",
+                "tar ext /dev/ttyACM0",
+                "-ex",
+                "mon tpwr d",
+                "-ex",
+                "q"
+            ],
+            "problemMatcher": []
         }
     ]
 }

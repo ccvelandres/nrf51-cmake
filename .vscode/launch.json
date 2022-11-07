@@ -15,7 +15,8 @@
             "preRestartCommands": [
                 "enable breakpoint",
                 "break main"
-            ]
+            ],
+            "BMPGDBSerialPort": "/dev/ttyACM0"
         },
         {
             "name": "example",

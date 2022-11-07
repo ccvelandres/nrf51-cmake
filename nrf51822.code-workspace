@@ -8,7 +8,10 @@
         }
     ],
     "settings": {
-        "cortex-debug.variableUseNaturalFormat": false
+        "cortex-debug.variableUseNaturalFormat": false,
+        "files.associations": {
+            "nrf_delay.h": "c"
+        }
         
     }
 }

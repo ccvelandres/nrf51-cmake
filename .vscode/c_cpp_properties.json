@@ -7,9 +7,13 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/config"
+                "${workspaceFolder}/config",
+                "${workspaceFolder}/../nrf51SDK/nRF5_SDK_12.3.0_d7731ad/components/**"
             ],
-            "defines": [],
+            "defines": [
+                "-DBLE_STACK_SUPPORT_REQD",
+                "-DSOFTDEVICE_PRESENT"
+            ],
             "compilerPath": "/bin/arm-none-eabi-gcc",
             "cStandard": "c99",
             "cppStandard": "gnu++14",
