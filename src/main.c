@@ -126,15 +126,6 @@
 #define NEXT_CONN_PARAMS_UPDATE_DELAY    APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT     3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
 
-#define SEC_PARAM_BOND                   1                                           /**< Perform bonding. */
-#define SEC_PARAM_MITM                   0                                           /**< Man In The Middle protection not required. */
-#define SEC_PARAM_LESC                   0                                           /**< LE Secure Connections not enabled. */
-#define SEC_PARAM_KEYPRESS               0                                           /**< Keypress notifications not enabled. */
-#define SEC_PARAM_IO_CAPABILITIES        BLE_GAP_IO_CAPS_NONE                        /**< No I/O capabilities. */
-#define SEC_PARAM_OOB                    0                                           /**< Out Of Band data not available. */
-#define SEC_PARAM_MIN_KEY_SIZE           7                                           /**< Minimum encryption key size. */
-#define SEC_PARAM_MAX_KEY_SIZE           16                                          /**< Maximum encryption key size. */
-
 #define OUTPUT_REPORT_INDEX              0                                           /**< Index of Output Report. */
 #define OUTPUT_REPORT_MAX_LEN            1                                           /**< Maximum length of Output Report. */
 #define INPUT_REPORT_KEYS_INDEX          0                                           /**< Index of Input Report. */
@@ -157,7 +148,7 @@
 #ifdef SVCALL_AS_NORMAL_FUNCTION
 #define SCHED_QUEUE_SIZE                 20                                          /**< Maximum number of events in the scheduler queue. More is needed in case of Serialization. */
 #else
-#define SCHED_QUEUE_SIZE                 10                                          /**< Maximum number of events in the scheduler queue. */
+#define SCHED_QUEUE_SIZE                 8                                           /**< Maximum number of events in the scheduler queue. */
 #endif
 
 #define MODIFIER_KEY_POS                 0                                           /**< Position of the modifier byte in the Input Report. */
@@ -238,6 +229,52 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
+/**@brief Function for handling Service errors.
+ *
+ * @details A pointer to this function will be passed to each service which may need to inform the
+ *          application about an error.
+ *
+ * @param[in]   nrf_error   Error code containing information about what went wrong.
+ */
+static void service_error_handler(uint32_t nrf_error)
+{
+    APP_ERROR_HANDLER(nrf_error);
+}
+
+/**@brief Function for handling advertising errors.
+ *
+ * @param[in] nrf_error  Error code containing information about what went wrong.
+ */
+static void ble_advertising_error_handler(uint32_t nrf_error)
+{
+    APP_ERROR_HANDLER(nrf_error);
+}
+
+/**@brief Function for putting the chip into sleep mode.
+ *
+ * @note This function will not return.
+ */
+static void sleep_mode_enter(void)
+{
+    uint32_t err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+
+    APP_ERROR_CHECK(err_code);
+
+    // Prepare wakeup buttons.
+
+    // Go to system-off mode (this function will not return; wakeup will cause a reset).
+    err_code = sd_power_system_off();
+    APP_ERROR_CHECK(err_code);
+}
+
+/**@brief Function for the Power manager.
+ */
+static void power_manage(void)
+{
+    uint32_t err_code = sd_app_evt_wait();
+
+    APP_ERROR_CHECK(err_code);
+}
 
 /**@brief Fetch the list of peer manager peer IDs.
  *
@@ -262,7 +299,6 @@ static void peer_list_get(pm_peer_id_t * p_peers, uint32_t * p_size)
         peer_id = pm_next_peer_id_get(peer_id);
     }
 }
-
 
 /**@brief Function for starting advertising.
  */
@@ -290,389 +326,6 @@ static void advertising_start(void)
 
     ret = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(ret);
-}
-
-
-/**@brief Function for handling Peer Manager events.
- *
- * @param[in] p_evt  Peer Manager event.
- */
-static void pm_evt_handler(pm_evt_t const * p_evt)
-{
-    ret_code_t err_code;
-
-    switch (p_evt->evt_id)
-    {
-        case PM_EVT_BONDED_PEER_CONNECTED:
-        {
-            NRF_LOG_INFO("Connected to a previously bonded device.\r\n");
-        } break;
-
-        case PM_EVT_CONN_SEC_SUCCEEDED:
-        {
-            NRF_LOG_INFO("Connection secured. Role: %d. conn_handle: %d, Procedure: %d\r\n",
-                         ble_conn_state_role(p_evt->conn_handle),
-                         p_evt->conn_handle,
-                         p_evt->params.conn_sec_succeeded.procedure);
-
-            m_peer_id = p_evt->peer_id;
-
-            // Note: You should check on what kind of white list policy your application should use.
-            if (p_evt->params.conn_sec_succeeded.procedure == PM_LINK_SECURED_PROCEDURE_BONDING)
-            {
-                NRF_LOG_INFO("New Bond, add the peer to the whitelist if possible\r\n");
-                NRF_LOG_INFO("\tm_whitelist_peer_cnt %d, MAX_PEERS_WLIST %d\r\n",
-                               m_whitelist_peer_cnt + 1,
-                               BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
-
-                if (m_whitelist_peer_cnt < BLE_GAP_WHITELIST_ADDR_MAX_COUNT)
-                {
-                    // Bonded to a new peer, add it to the whitelist.
-                    m_whitelist_peers[m_whitelist_peer_cnt++] = m_peer_id;
-                    m_is_wl_changed = true;
-                }
-            }
-        } break;
-
-        case PM_EVT_CONN_SEC_FAILED:
-        {
-            /* Often, when securing fails, it shouldn't be restarted, for security reasons.
-             * Other times, it can be restarted directly.
-             * Sometimes it can be restarted, but only after changing some Security Parameters.
-             * Sometimes, it cannot be restarted until the link is disconnected and reconnected.
-             * Sometimes it is impossible, to secure the link, or the peer device does not support it.
-             * How to handle this error is highly application dependent. */
-        } break;
-
-        case PM_EVT_CONN_SEC_CONFIG_REQ:
-        {
-            // Reject pairing request from an already bonded peer.
-            pm_conn_sec_config_t conn_sec_config = {.allow_repairing = false};
-            pm_conn_sec_config_reply(p_evt->conn_handle, &conn_sec_config);
-        } break;
-
-        case PM_EVT_STORAGE_FULL:
-        {
-            // Run garbage collection on the flash.
-            err_code = fds_gc();
-            if (err_code == FDS_ERR_BUSY || err_code == FDS_ERR_NO_SPACE_IN_QUEUES)
-            {
-                // Retry.
-            }
-            else
-            {
-                APP_ERROR_CHECK(err_code);
-            }
-        } break;
-
-        case PM_EVT_PEERS_DELETE_SUCCEEDED:
-        {
-            advertising_start();
-        } break;
-
-        case PM_EVT_LOCAL_DB_CACHE_APPLY_FAILED:
-        {
-            // The local database has likely changed, send service changed indications.
-            pm_local_database_has_changed();
-        } break;
-
-        case PM_EVT_PEER_DATA_UPDATE_FAILED:
-        {
-            // Assert.
-            APP_ERROR_CHECK(p_evt->params.peer_data_update_failed.error);
-        } break;
-
-        case PM_EVT_PEER_DELETE_FAILED:
-        {
-            // Assert.
-            APP_ERROR_CHECK(p_evt->params.peer_delete_failed.error);
-        } break;
-
-        case PM_EVT_PEERS_DELETE_FAILED:
-        {
-            // Assert.
-            APP_ERROR_CHECK(p_evt->params.peers_delete_failed_evt.error);
-        } break;
-
-        case PM_EVT_ERROR_UNEXPECTED:
-        {
-            // Assert.
-            APP_ERROR_CHECK(p_evt->params.error_unexpected.error);
-        } break;
-
-        case PM_EVT_CONN_SEC_START:
-        case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
-        case PM_EVT_PEER_DELETE_SUCCEEDED:
-        case PM_EVT_LOCAL_DB_CACHE_APPLIED:
-        case PM_EVT_SERVICE_CHANGED_IND_SENT:
-        case PM_EVT_SERVICE_CHANGED_IND_CONFIRMED:
-        default:
-            break;
-    }
-}
-
-
-/**@brief Function for handling Service errors.
- *
- * @details A pointer to this function will be passed to each service which may need to inform the
- *          application about an error.
- *
- * @param[in]   nrf_error   Error code containing information about what went wrong.
- */
-static void service_error_handler(uint32_t nrf_error)
-{
-    APP_ERROR_HANDLER(nrf_error);
-}
-
-
-/**@brief Function for handling advertising errors.
- *
- * @param[in] nrf_error  Error code containing information about what went wrong.
- */
-static void ble_advertising_error_handler(uint32_t nrf_error)
-{
-    APP_ERROR_HANDLER(nrf_error);
-}
-
-/**@brief Function for the Timer initialization.
- *
- * @details Initializes the timer module.
- */
-static void timers_init(void)
-{
-    // Initialize timer module, making it use the scheduler.
-    APP_TIMER_APPSH_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, true);
-}
-
-
-/**@brief Function for the GAP initialization.
- *
- * @details This function sets up all the necessary GAP (Generic Access Profile) parameters of the
- *          device including the device name, appearance, and the preferred connection parameters.
- */
-static void gap_params_init(void)
-{
-    uint32_t                err_code;
-    ble_gap_conn_params_t   gap_conn_params;
-    ble_gap_conn_sec_mode_t sec_mode;
-
-    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
-
-    err_code = sd_ble_gap_device_name_set(&sec_mode,
-                                          (const uint8_t *)DEVICE_NAME,
-                                          strlen(DEVICE_NAME));
-    APP_ERROR_CHECK(err_code);
-
-    err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_HID_KEYBOARD);
-    APP_ERROR_CHECK(err_code);
-
-    memset(&gap_conn_params, 0, sizeof(gap_conn_params));
-
-    gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
-    gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
-    gap_conn_params.slave_latency     = SLAVE_LATENCY;
-    gap_conn_params.conn_sup_timeout  = CONN_SUP_TIMEOUT;
-
-    err_code = sd_ble_gap_ppcp_set(&gap_conn_params);
-    APP_ERROR_CHECK(err_code);
-}
-
-
-/**@brief Function for initializing Device Information Service.
- */
-static void dis_init(void)
-{
-    uint32_t         err_code;
-    ble_dis_init_t   dis_init_obj;
-    ble_dis_pnp_id_t pnp_id;
-
-    pnp_id.vendor_id_source = PNP_ID_VENDOR_ID_SOURCE;
-    pnp_id.vendor_id        = PNP_ID_VENDOR_ID;
-    pnp_id.product_id       = PNP_ID_PRODUCT_ID;
-    pnp_id.product_version  = PNP_ID_PRODUCT_VERSION;
-
-    memset(&dis_init_obj, 0, sizeof(dis_init_obj));
-
-    ble_srv_ascii_to_utf8(&dis_init_obj.manufact_name_str, MANUFACTURER_NAME);
-    dis_init_obj.p_pnp_id = &pnp_id;
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&dis_init_obj.dis_attr_md.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init_obj.dis_attr_md.write_perm);
-
-    err_code = ble_dis_init(&dis_init_obj);
-    APP_ERROR_CHECK(err_code);
-}
-
-/**@brief Function for initializing HID Service.
- */
-static void hids_init(void)
-{
-    uint32_t                   err_code;
-    ble_hids_init_t            hids_init_obj;
-    ble_hids_inp_rep_init_t    input_report_array[1];
-    ble_hids_inp_rep_init_t  * p_input_report;
-    ble_hids_outp_rep_init_t   output_report_array[1];
-    ble_hids_outp_rep_init_t * p_output_report;
-    uint8_t                    hid_info_flags;
-
-    memset((void *)input_report_array, 0, sizeof(ble_hids_inp_rep_init_t));
-    memset((void *)output_report_array, 0, sizeof(ble_hids_outp_rep_init_t));
-
-    static uint8_t report_map_data[] =
-    {
-        0x05, 0x01,       // Usage Page (Generic Desktop)
-        0x09, 0x06,       // Usage (Keyboard)
-        0xA1, 0x01,       // Collection (Application)
-        0x05, 0x07,       // Usage Page (Key Codes)
-        0x19, 0xe0,       // Usage Minimum (224)
-        0x29, 0xe7,       // Usage Maximum (231)
-        0x15, 0x00,       // Logical Minimum (0)
-        0x25, 0x01,       // Logical Maximum (1)
-        0x75, 0x01,       // Report Size (1)
-        0x95, 0x08,       // Report Count (8)
-        0x81, 0x02,       // Input (Data, Variable, Absolute)
-
-        0x95, 0x01,       // Report Count (1)
-        0x75, 0x08,       // Report Size (8)
-        0x81, 0x01,       // Input (Constant) reserved byte(1)
-
-        0x95, 0x05,       // Report Count (5)
-        0x75, 0x01,       // Report Size (1)
-        0x05, 0x08,       // Usage Page (Page# for LEDs)
-        0x19, 0x01,       // Usage Minimum (1)
-        0x29, 0x05,       // Usage Maximum (5)
-        0x91, 0x02,       // Output (Data, Variable, Absolute), Led report
-        0x95, 0x01,       // Report Count (1)
-        0x75, 0x03,       // Report Size (3)
-        0x91, 0x01,       // Output (Data, Variable, Absolute), Led report padding
-
-        0x95, 0x06,       // Report Count (6)
-        0x75, 0x08,       // Report Size (8)
-        0x15, 0x00,       // Logical Minimum (0)
-        0x25, 0x65,       // Logical Maximum (101)
-        0x05, 0x07,       // Usage Page (Key codes)
-        0x19, 0x00,       // Usage Minimum (0)
-        0x29, 0x65,       // Usage Maximum (101)
-        0x81, 0x00,       // Input (Data, Array) Key array(6 bytes)
-
-        0x09, 0x05,       // Usage (Vendor Defined)
-        0x15, 0x00,       // Logical Minimum (0)
-        0x26, 0xFF, 0x00, // Logical Maximum (255)
-        0x75, 0x08,       // Report Count (2)
-        0x95, 0x02,       // Report Size (8 bit)
-        0xB1, 0x02,       // Feature (Data, Variable, Absolute)
-
-        0xC0              // End Collection (Application)
-    };
-
-    // Initialize HID Service
-    p_input_report                      = &input_report_array[INPUT_REPORT_KEYS_INDEX];
-    p_input_report->max_len             = INPUT_REPORT_KEYS_MAX_LEN;
-    p_input_report->rep_ref.report_id   = INPUT_REP_REF_ID;
-    p_input_report->rep_ref.report_type = BLE_HIDS_REP_TYPE_INPUT;
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&p_input_report->security_mode.cccd_write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&p_input_report->security_mode.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&p_input_report->security_mode.write_perm);
-
-    p_output_report                      = &output_report_array[OUTPUT_REPORT_INDEX];
-    p_output_report->max_len             = OUTPUT_REPORT_MAX_LEN;
-    p_output_report->rep_ref.report_id   = OUTPUT_REP_REF_ID;
-    p_output_report->rep_ref.report_type = BLE_HIDS_REP_TYPE_OUTPUT;
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&p_output_report->security_mode.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&p_output_report->security_mode.write_perm);
-
-    hid_info_flags = HID_INFO_FLAG_REMOTE_WAKE_MSK | HID_INFO_FLAG_NORMALLY_CONNECTABLE_MSK;
-
-    memset(&hids_init_obj, 0, sizeof(hids_init_obj));
-
-    hids_init_obj.evt_handler                    = on_hids_evt;
-    hids_init_obj.error_handler                  = service_error_handler;
-    hids_init_obj.is_kb                          = true;
-    hids_init_obj.is_mouse                       = false;
-    hids_init_obj.inp_rep_count                  = 1;
-    hids_init_obj.p_inp_rep_array                = input_report_array;
-    hids_init_obj.outp_rep_count                 = 1;
-    hids_init_obj.p_outp_rep_array               = output_report_array;
-    hids_init_obj.feature_rep_count              = 0;
-    hids_init_obj.p_feature_rep_array            = NULL;
-    hids_init_obj.rep_map.data_len               = sizeof(report_map_data);
-    hids_init_obj.rep_map.p_data                 = report_map_data;
-    hids_init_obj.hid_information.bcd_hid        = BASE_USB_HID_SPEC_VERSION;
-    hids_init_obj.hid_information.b_country_code = 0;
-    hids_init_obj.hid_information.flags          = hid_info_flags;
-    hids_init_obj.included_services_count        = 0;
-    hids_init_obj.p_included_services_array      = NULL;
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.rep_map.security_mode.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hids_init_obj.rep_map.security_mode.write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.hid_information.security_mode.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hids_init_obj.hid_information.security_mode.write_perm);
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(
-        &hids_init_obj.security_mode_boot_kb_inp_rep.cccd_write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.security_mode_boot_kb_inp_rep.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hids_init_obj.security_mode_boot_kb_inp_rep.write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.security_mode_boot_kb_outp_rep.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.security_mode_boot_kb_outp_rep.write_perm);
-
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.security_mode_protocol.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.security_mode_protocol.write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hids_init_obj.security_mode_ctrl_point.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hids_init_obj.security_mode_ctrl_point.write_perm);
-
-    err_code = ble_hids_init(&m_hids, &hids_init_obj);
-    APP_ERROR_CHECK(err_code);
-}
-
-
-/**@brief Function for initializing services that will be used by the application.
- */
-static void services_init(void)
-{
-    dis_init();
-    hids_init();
-}
-
-/**@brief Function for handling a Connection Parameters error.
- *
- * @param[in]   nrf_error   Error code containing information about what went wrong.
- */
-static void conn_params_error_handler(uint32_t nrf_error)
-{
-    APP_ERROR_HANDLER(nrf_error);
-}
-
-
-/**@brief Function for initializing the Connection Parameters module.
- */
-static void conn_params_init(void)
-{
-    uint32_t               err_code;
-    ble_conn_params_init_t cp_init;
-
-    memset(&cp_init, 0, sizeof(cp_init));
-
-    cp_init.p_conn_params                  = NULL;
-    cp_init.first_conn_params_update_delay = FIRST_CONN_PARAMS_UPDATE_DELAY;
-    cp_init.next_conn_params_update_delay  = NEXT_CONN_PARAMS_UPDATE_DELAY;
-    cp_init.max_conn_params_update_count   = MAX_CONN_PARAMS_UPDATE_COUNT;
-    cp_init.start_on_notify_cccd_handle    = BLE_GATT_HANDLE_INVALID;
-    cp_init.disconnect_on_fail             = false;
-    cp_init.evt_handler                    = NULL;
-    cp_init.error_handler                  = conn_params_error_handler;
-
-    err_code = ble_conn_params_init(&cp_init);
-    APP_ERROR_CHECK(err_code);
-}
-
-
-/**@brief Function for starting timers.
- */
-static void timers_start(void)
-{
-    (void) NULL;
 }
 
 
@@ -795,7 +448,6 @@ static void keys_send(uint8_t key_pattern_len, uint8_t * p_key_pattern)
     }
 }
 
-
 /**@brief Function for handling the HID Report Characteristic Write event.
  *
  * @param[in]   p_evt   HID service event.
@@ -849,25 +501,6 @@ static void on_hid_rep_char_write(ble_hids_evt_t * p_evt)
     }
 }
 
-
-/**@brief Function for putting the chip into sleep mode.
- *
- * @note This function will not return.
- */
-static void sleep_mode_enter(void)
-{
-    uint32_t err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-
-    APP_ERROR_CHECK(err_code);
-
-    // Prepare wakeup buttons.
-
-    // Go to system-off mode (this function will not return; wakeup will cause a reset).
-    err_code = sd_power_system_off();
-    APP_ERROR_CHECK(err_code);
-}
-
-
 /**@brief Function for handling HID events.
  *
  * @details This function will be called for all HID events which are passed to the application.
@@ -899,7 +532,6 @@ static void on_hids_evt(ble_hids_t * p_hids, ble_hids_evt_t * p_evt)
             break;
     }
 }
-
 
 /**@brief Function for handling advertising events.
  *
@@ -990,7 +622,6 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             break;
     }
 }
-
 
 /**@brief Function for handling the Application's BLE Stack events.
  *
@@ -1105,108 +736,6 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     }
 }
 
-
-/**@brief   Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
- *
- * @details This function is called from the scheduler in the main loop after a BLE stack
- *          event has been received.
- *
- * @param[in]   p_ble_evt   Bluetooth stack event.
- */
-static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
-{
-    /** The Connection state module has to be fed BLE events in order to function correctly
-     * Remember to call ble_conn_state_on_ble_evt before calling any ble_conns_state_* functions. */
-    ble_conn_state_on_ble_evt(p_ble_evt);
-    pm_on_ble_evt(p_ble_evt);
-    on_ble_evt(p_ble_evt);
-    ble_advertising_on_ble_evt(p_ble_evt);
-    ble_conn_params_on_ble_evt(p_ble_evt);
-    ble_hids_on_ble_evt(&m_hids, p_ble_evt);
-}
-
-
-/**@brief   Function for dispatching a system event to interested modules.
- *
- * @details This function is called from the System event interrupt handler after a system
- *          event has been received.
- *
- * @param[in]   sys_evt   System stack event.
- */
-static void sys_evt_dispatch(uint32_t sys_evt)
-{
-    // Dispatch the system event to the fstorage module, where it will be
-    // dispatched to the Flash Data Storage (FDS) module.
-    fs_sys_event_handler(sys_evt);
-
-    // Dispatch to the Advertising module last, since it will check if there are any
-    // pending flash operations in fstorage. Let fstorage process system events first,
-    // so that it can report correctly to the Advertising module.
-    ble_advertising_on_sys_evt(sys_evt);
-}
-
-
-/**@brief Function for initializing the BLE stack.
- *
- * @details Initializes the SoftDevice and the BLE event interrupt.
- */
-static void ble_stack_init(void)
-{
-    uint32_t err_code;
-
-    nrf_clock_lf_cfg_t clock_lf_cfg = NRF_CLOCK_LFCLKSRC;
-
-    // Initialize the SoftDevice handler module.
-    SOFTDEVICE_HANDLER_APPSH_INIT(&clock_lf_cfg, true);
-
-    ble_enable_params_t ble_enable_params = 
-    {
-        .common_enable_params = 
-        {
-            .vs_uuid_count = 0,
-            .p_conn_bw_counts = NULL
-        },
-        .gap_enable_params =
-        {
-            .central_conn_count = CENTRAL_LINK_COUNT,
-            .periph_conn_count = PERIPHERAL_LINK_COUNT,
-            .central_sec_count = 0
-        },
-        .gatts_enable_params =
-        {
-            .attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT,
-            .service_changed = 0
-        }
-    };
-
-    // Check the ram settings against the used number of links
-    CHECK_RAM_START_ADDR(CENTRAL_LINK_COUNT, PERIPHERAL_LINK_COUNT);
-
-    // Enable BLE stack.
-#if (NRF_SD_BLE_API_VERSION == 3)
-    ble_enable_params.gatt_enable_params.att_mtu = NRF_BLE_MAX_MTU_SIZE;
-#endif
-    err_code = softdevice_enable(&ble_enable_params);
-    APP_ERROR_CHECK(err_code);
-
-    // Register with the SoftDevice handler module for BLE events.
-    err_code = softdevice_ble_evt_handler_set(ble_evt_dispatch);
-    APP_ERROR_CHECK(err_code);
-
-    // Register with the SoftDevice handler module for BLE events.
-    err_code = softdevice_sys_evt_handler_set(sys_evt_dispatch);
-    APP_ERROR_CHECK(err_code);
-}
-
-
-/**@brief Function for the Event Scheduler initialization.
- */
-static void scheduler_init(void)
-{
-    APP_SCHED_INIT(SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE);
-}
-
-
 /**@brief Function for handling events from the BSP module.
  *
  * @param[in]   event   Event generated by button press.
@@ -1262,6 +791,285 @@ static void bsp_event_handler(bsp_event_t event)
     }
 }
 
+/**@brief Function for handling Peer Manager events.
+ *
+ * @param[in] p_evt  Peer Manager event.
+ */
+static void pm_evt_handler(pm_evt_t const * p_evt)
+{
+    ret_code_t err_code;
+
+    switch (p_evt->evt_id)
+    {
+        case PM_EVT_BONDED_PEER_CONNECTED:
+        {
+            NRF_LOG_INFO("Connected to a previously bonded device.\r\n");
+        } break;
+
+        case PM_EVT_CONN_SEC_SUCCEEDED:
+        {
+            NRF_LOG_INFO("Connection secured. Role: %d. conn_handle: %d, Procedure: %d\r\n",
+                         ble_conn_state_role(p_evt->conn_handle),
+                         p_evt->conn_handle,
+                         p_evt->params.conn_sec_succeeded.procedure);
+
+            m_peer_id = p_evt->peer_id;
+
+            // Note: You should check on what kind of white list policy your application should use.
+            if (p_evt->params.conn_sec_succeeded.procedure == PM_LINK_SECURED_PROCEDURE_BONDING)
+            {
+                NRF_LOG_INFO("New Bond, add the peer to the whitelist if possible\r\n");
+                NRF_LOG_INFO("\tm_whitelist_peer_cnt %d, MAX_PEERS_WLIST %d\r\n",
+                               m_whitelist_peer_cnt + 1,
+                               BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
+
+                if (m_whitelist_peer_cnt < BLE_GAP_WHITELIST_ADDR_MAX_COUNT)
+                {
+                    // Bonded to a new peer, add it to the whitelist.
+                    m_whitelist_peers[m_whitelist_peer_cnt++] = m_peer_id;
+                    m_is_wl_changed = true;
+                }
+            }
+        } break;
+
+        case PM_EVT_CONN_SEC_FAILED:
+        {
+            /* Often, when securing fails, it shouldn't be restarted, for security reasons.
+             * Other times, it can be restarted directly.
+             * Sometimes it can be restarted, but only after changing some Security Parameters.
+             * Sometimes, it cannot be restarted until the link is disconnected and reconnected.
+             * Sometimes it is impossible, to secure the link, or the peer device does not support it.
+             * How to handle this error is highly application dependent. */
+        } break;
+
+        case PM_EVT_CONN_SEC_CONFIG_REQ:
+        {
+            // Reject pairing request from an already bonded peer.
+            pm_conn_sec_config_t conn_sec_config = {.allow_repairing = false};
+            pm_conn_sec_config_reply(p_evt->conn_handle, &conn_sec_config);
+        } break;
+
+        case PM_EVT_STORAGE_FULL:
+        {
+            // Run garbage collection on the flash.
+            err_code = fds_gc();
+            if (err_code == FDS_ERR_BUSY || err_code == FDS_ERR_NO_SPACE_IN_QUEUES)
+            {
+                // Retry.
+            }
+            else
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+        } break;
+
+        case PM_EVT_PEERS_DELETE_SUCCEEDED:
+        {
+            advertising_start();
+        } break;
+
+        case PM_EVT_LOCAL_DB_CACHE_APPLY_FAILED:
+        {
+            // The local database has likely changed, send service changed indications.
+            pm_local_database_has_changed();
+        } break;
+
+        case PM_EVT_PEER_DATA_UPDATE_FAILED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.peer_data_update_failed.error);
+        } break;
+
+        case PM_EVT_PEER_DELETE_FAILED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.peer_delete_failed.error);
+        } break;
+
+        case PM_EVT_PEERS_DELETE_FAILED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.peers_delete_failed_evt.error);
+        } break;
+
+        case PM_EVT_ERROR_UNEXPECTED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.error_unexpected.error);
+        } break;
+
+        case PM_EVT_CONN_SEC_START:
+        case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
+        case PM_EVT_PEER_DELETE_SUCCEEDED:
+        case PM_EVT_LOCAL_DB_CACHE_APPLIED:
+        case PM_EVT_SERVICE_CHANGED_IND_SENT:
+        case PM_EVT_SERVICE_CHANGED_IND_CONFIRMED:
+        default:
+            break;
+    }
+}
+
+
+/**@brief   Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
+ *
+ * @details This function is called from the scheduler in the main loop after a BLE stack
+ *          event has been received.
+ *
+ * @param[in]   p_ble_evt   Bluetooth stack event.
+ */
+static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
+{
+    /** The Connection state module has to be fed BLE events in order to function correctly
+     * Remember to call ble_conn_state_on_ble_evt before calling any ble_conns_state_* functions. */
+    ble_conn_state_on_ble_evt(p_ble_evt);
+    pm_on_ble_evt(p_ble_evt);
+    on_ble_evt(p_ble_evt);
+    ble_advertising_on_ble_evt(p_ble_evt);
+    ble_conn_params_on_ble_evt(p_ble_evt);
+    ble_hids_on_ble_evt(&m_hids, p_ble_evt);
+}
+
+/**@brief   Function for dispatching a system event to interested modules.
+ *
+ * @details This function is called from the System event interrupt handler after a system
+ *          event has been received.
+ *
+ * @param[in]   sys_evt   System stack event.
+ */
+static void sys_evt_dispatch(uint32_t sys_evt)
+{
+    // Dispatch the system event to the fstorage module, where it will be
+    // dispatched to the Flash Data Storage (FDS) module.
+    fs_sys_event_handler(sys_evt);
+
+    // Dispatch to the Advertising module last, since it will check if there are any
+    // pending flash operations in fstorage. Let fstorage process system events first,
+    // so that it can report correctly to the Advertising module.
+    ble_advertising_on_sys_evt(sys_evt);
+}
+
+/**@brief Function for the Timer initialization.
+ *
+ * @details Initializes the timer module.
+ */
+static void timers_init(void)
+{
+    // Initialize timer module, making it use the scheduler.
+    APP_TIMER_APPSH_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, true);
+}
+
+/**@brief Function for handling a Connection Parameters error.
+ *
+ * @param[in]   nrf_error   Error code containing information about what went wrong.
+ */
+static void conn_params_error_handler(uint32_t nrf_error)
+{
+    APP_ERROR_HANDLER(nrf_error);
+}
+
+
+/**@brief Function for initializing the Connection Parameters module.
+ */
+static void conn_params_init(void)
+{
+    uint32_t               err_code;
+    ble_conn_params_init_t cp_init;
+
+    memset(&cp_init, 0, sizeof(cp_init));
+
+    cp_init.p_conn_params                  = NULL;
+    cp_init.first_conn_params_update_delay = FIRST_CONN_PARAMS_UPDATE_DELAY;
+    cp_init.next_conn_params_update_delay  = NEXT_CONN_PARAMS_UPDATE_DELAY;
+    cp_init.max_conn_params_update_count   = MAX_CONN_PARAMS_UPDATE_COUNT;
+    cp_init.start_on_notify_cccd_handle    = BLE_GATT_HANDLE_INVALID;
+    cp_init.disconnect_on_fail             = false;
+    cp_init.evt_handler                    = NULL;
+    cp_init.error_handler                  = conn_params_error_handler;
+
+    err_code = ble_conn_params_init(&cp_init);
+    APP_ERROR_CHECK(err_code);
+}
+
+
+/**@brief Function for starting timers.
+ */
+static void timers_start(void)
+{
+    (void) NULL;
+}
+
+/**@brief Function for the Event Scheduler initialization.
+ */
+static void scheduler_init(void)
+{
+    APP_SCHED_INIT(SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE);
+}
+
+/**@brief Function for initializing buttons and leds.
+ *
+ * @param[out] p_erase_bonds  Will be true if the clear bonding button was pressed to wake the application up.
+ */
+static void app_bsp_init(bool * p_erase_bonds)
+{
+    uint32_t err_code = bsp_init(BSP_INIT_LED,
+                                 APP_TIMER_TICKS(100, APP_TIMER_PRESCALER),
+                                 bsp_event_handler);
+    APP_ERROR_CHECK(err_code);
+
+    /** @todo: detect button to erase bonds here */
+}
+
+/**@brief Function for initializing the BLE stack.
+ *
+ * @details Initializes the SoftDevice and the BLE event interrupt.
+ */
+static void ble_stack_init(void)
+{
+    uint32_t err_code;
+
+    nrf_clock_lf_cfg_t clock_lf_cfg = NRF_CLOCK_LFCLKSRC;
+
+    // Initialize the SoftDevice handler module.
+    SOFTDEVICE_HANDLER_APPSH_INIT(&clock_lf_cfg, true);
+
+    ble_enable_params_t ble_enable_params = 
+    {
+        .common_enable_params = 
+        {
+            .vs_uuid_count = 0,
+            .p_conn_bw_counts = NULL
+        },
+        .gap_enable_params =
+        {
+            .central_conn_count = CENTRAL_LINK_COUNT,
+            .periph_conn_count = PERIPHERAL_LINK_COUNT,
+            .central_sec_count = 0
+        },
+        .gatts_enable_params =
+        {
+            .attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT,
+            .service_changed = 0
+        }
+    };
+
+    // Check the ram settings against the used number of links
+    CHECK_RAM_START_ADDR(CENTRAL_LINK_COUNT, PERIPHERAL_LINK_COUNT);
+
+    // Enable BLE stack.
+#if (NRF_SD_BLE_API_VERSION == 3)
+    ble_enable_params.gatt_enable_params.att_mtu = NRF_BLE_MAX_MTU_SIZE;
+#endif
+    err_code = softdevice_enable(&ble_enable_params);
+    APP_ERROR_CHECK(err_code);
+
+    // Register with the SoftDevice handler module for BLE events.
+    err_code = softdevice_ble_evt_handler_set(ble_evt_dispatch);
+    APP_ERROR_CHECK(err_code);
+
+    // Register with the SoftDevice handler module for BLE events.
+    err_code = softdevice_sys_evt_handler_set(sys_evt_dispatch);
+    APP_ERROR_CHECK(err_code);
+}
 
 /**@brief Function for the Peer Manager initialization.
  *
@@ -1270,7 +1078,6 @@ static void bsp_event_handler(bsp_event_t event)
  */
 static void peer_manager_init(bool erase_bonds)
 {
-    ble_gap_sec_params_t sec_param;
     ret_code_t           err_code;
 
     err_code = pm_init();
@@ -1282,21 +1089,22 @@ static void peer_manager_init(bool erase_bonds)
         APP_ERROR_CHECK(err_code);
     }
 
-    memset(&sec_param, 0, sizeof(ble_gap_sec_params_t));
-
     // Security parameters to be used for all security procedures.
-    sec_param.bond           = SEC_PARAM_BOND;
-    sec_param.mitm           = SEC_PARAM_MITM;
-    sec_param.lesc           = SEC_PARAM_LESC;
-    sec_param.keypress       = SEC_PARAM_KEYPRESS;
-    sec_param.io_caps        = SEC_PARAM_IO_CAPABILITIES;
-    sec_param.oob            = SEC_PARAM_OOB;
-    sec_param.min_key_size   = SEC_PARAM_MIN_KEY_SIZE;
-    sec_param.max_key_size   = SEC_PARAM_MAX_KEY_SIZE;
-    sec_param.kdist_own.enc  = 1;
-    sec_param.kdist_own.id   = 1;
-    sec_param.kdist_peer.enc = 1;
-    sec_param.kdist_peer.id  = 1;
+    ble_gap_sec_params_t sec_param =
+    {
+        .bond           = 1, /**< Perform bonding. */
+        .mitm           = 0, /**< Man In The Middle protection not required. */
+        .lesc           = 0, /**< LE Secure Connections not enabled. */
+        .keypress       = 0, /**< Keypress notifications not enabled. */
+        .io_caps        = BLE_GAP_IO_CAPS_NONE, /**< No I/O capabilities. */
+        .oob            = 0, /**< Out Of Band data not available. */
+        .min_key_size   = 7, /**< Minimum encryption key size. */
+        .max_key_size   = 16, /**< Maximum encryption key size. */
+        .kdist_own.enc  = 1,
+        .kdist_own.id   = 1,
+        .kdist_peer.enc = 1,
+        .kdist_peer.id  = 1
+    };
 
     err_code = pm_sec_params_set(&sec_param);
     APP_ERROR_CHECK(err_code);
@@ -1305,38 +1113,69 @@ static void peer_manager_init(bool erase_bonds)
     APP_ERROR_CHECK(err_code);
 }
 
+/**@brief Function for the GAP initialization.
+ *
+ * @details This function sets up all the necessary GAP (Generic Access Profile) parameters of the
+ *          device including the device name, appearance, and the preferred connection parameters.
+ */
+static void gap_params_init(void)
+{
+    uint32_t                err_code;
+    ble_gap_conn_sec_mode_t sec_mode;
+
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
+
+    err_code = sd_ble_gap_device_name_set(&sec_mode,
+                                          (const uint8_t *)DEVICE_NAME,
+                                          strlen(DEVICE_NAME));
+    APP_ERROR_CHECK(err_code);
+
+    err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_HID_KEYBOARD);
+    APP_ERROR_CHECK(err_code);
+
+    ble_gap_conn_params_t   gap_conn_params =
+    {
+        .min_conn_interval = MIN_CONN_INTERVAL,
+        .max_conn_interval = MAX_CONN_INTERVAL,
+        .slave_latency     = SLAVE_LATENCY,
+        .conn_sup_timeout  = CONN_SUP_TIMEOUT
+    };
+
+    err_code = sd_ble_gap_ppcp_set(&gap_conn_params);
+    APP_ERROR_CHECK(err_code);
+}
 
 /**@brief Function for initializing the Advertising functionality.
  */
 static void advertising_init(void)
 {
     uint32_t               err_code;
-    uint8_t                adv_flags;
-    ble_advdata_t          advdata;
-    ble_adv_modes_config_t options;
+    uint8_t                adv_flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     // Build and set advertising data
-    memset(&advdata, 0, sizeof(advdata));
+    ble_advdata_t          advdata =
+    {
+        .name_type               = BLE_ADVDATA_FULL_NAME,
+        .include_appearance      = true,
+        .flags                   = adv_flags,
+        .uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]),
+        .uuids_complete.p_uuids  = m_adv_uuids
+    };
 
-    adv_flags                       = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    advdata.include_appearance      = true;
-    advdata.flags                   = adv_flags;
-    advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-    advdata.uuids_complete.p_uuids  = m_adv_uuids;
-
-    memset(&options, 0, sizeof(options));
-    options.ble_adv_whitelist_enabled      = true;
-    options.ble_adv_directed_enabled       = true;
-    options.ble_adv_directed_slow_enabled  = false;
-    options.ble_adv_directed_slow_interval = 0;
-    options.ble_adv_directed_slow_timeout  = 0;
-    options.ble_adv_fast_enabled           = true;
-    options.ble_adv_fast_interval          = APP_ADV_FAST_INTERVAL;
-    options.ble_adv_fast_timeout           = APP_ADV_FAST_TIMEOUT;
-    options.ble_adv_slow_enabled           = true;
-    options.ble_adv_slow_interval          = APP_ADV_SLOW_INTERVAL;
-    options.ble_adv_slow_timeout           = APP_ADV_SLOW_TIMEOUT;
+    ble_adv_modes_config_t options =
+    {
+        .ble_adv_whitelist_enabled      = true,
+        .ble_adv_directed_enabled       = true,
+        .ble_adv_directed_slow_enabled  = false,
+        .ble_adv_directed_slow_interval = 0,
+        .ble_adv_directed_slow_timeout  = 0,
+        .ble_adv_fast_enabled           = true,
+        .ble_adv_fast_interval          = APP_ADV_FAST_INTERVAL,
+        .ble_adv_fast_timeout           = APP_ADV_FAST_TIMEOUT,
+        .ble_adv_slow_enabled           = true,
+        .ble_adv_slow_interval          = APP_ADV_SLOW_INTERVAL,
+        .ble_adv_slow_timeout           = APP_ADV_SLOW_TIMEOUT
+    };
 
     err_code = ble_advertising_init(&advdata,
                                     NULL,
@@ -1346,36 +1185,190 @@ static void advertising_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
-/**@brief Function for initializing buttons and leds.
- *
- * @param[out] p_erase_bonds  Will be true if the clear bonding button was pressed to wake the application up.
+/**@brief Function for initializing Device Information Service.
  */
-static void app_bsp_init(bool * p_erase_bonds)
+static void dis_init(void)
 {
-    uint32_t err_code = bsp_init(BSP_INIT_LED,
-                                 APP_TIMER_TICKS(100, APP_TIMER_PRESCALER),
-                                 bsp_event_handler);
+    uint32_t         err_code;
 
+    ble_dis_pnp_id_t pnp_id =
+    {
+        .vendor_id_source = PNP_ID_VENDOR_ID_SOURCE,
+        .vendor_id        = PNP_ID_VENDOR_ID,
+        .product_id       = PNP_ID_PRODUCT_ID,
+        .product_version  = PNP_ID_PRODUCT_VERSION
+    };
+
+    ble_dis_init_t   dis_init_obj =
+    {
+        .p_pnp_id = &pnp_id
+    };
+
+    ble_srv_ascii_to_utf8(&dis_init_obj.manufact_name_str, MANUFACTURER_NAME);
+    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&dis_init_obj.dis_attr_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init_obj.dis_attr_md.write_perm);
+
+    err_code = ble_dis_init(&dis_init_obj);
     APP_ERROR_CHECK(err_code);
 }
 
-
-/**@brief Function for the Power manager.
+/**@brief Function for initializing HID Service.
  */
-static void power_manage(void)
+static void hids_init(void)
 {
-    uint32_t err_code = sd_app_evt_wait();
+    uint32_t                   err_code;
+    ble_hids_inp_rep_init_t    input_report_array[1] =
+    {
+        {
+            .max_len = INPUT_REPORT_KEYS_MAX_LEN,
+            .rep_ref = 
+            {
+                .report_id = INPUT_REP_REF_ID,
+                .report_type = BLE_HIDS_REP_TYPE_INPUT
+            },
+            .security_mode =
+            {
+                .cccd_write_perm = { 1, 2 },  // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+                .read_perm = { 1, 2 },  // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+                .write_perm = { 1, 2 }  // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+            }
+        }
+    };
 
+    ble_hids_outp_rep_init_t   output_report_array[1] =
+    {
+        {
+            .max_len = OUTPUT_REPORT_MAX_LEN,
+            .rep_ref =
+            {
+                .report_id = OUTPUT_REP_REF_ID,
+                .report_type = BLE_HIDS_REP_TYPE_OUTPUT
+            },
+            .security_mode =
+            {
+                .read_perm = { 1, 2 },  // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+                .write_perm = { 1, 2 }  // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+            }
+        }
+    };
+
+    static const uint8_t report_map_data[] =
+    {
+        0x05, 0x01,       // Usage Page (Generic Desktop)
+        0x09, 0x06,       // Usage (Keyboard)
+        0xA1, 0x01,       // Collection (Application)
+        0x05, 0x07,       // Usage Page (Key Codes)
+        0x19, 0xe0,       // Usage Minimum (224)
+        0x29, 0xe7,       // Usage Maximum (231)
+        0x15, 0x00,       // Logical Minimum (0)
+        0x25, 0x01,       // Logical Maximum (1)
+        0x75, 0x01,       // Report Size (1)
+        0x95, 0x08,       // Report Count (8)
+        0x81, 0x02,       // Input (Data, Variable, Absolute)
+
+        0x95, 0x01,       // Report Count (1)
+        0x75, 0x08,       // Report Size (8)
+        0x81, 0x01,       // Input (Constant) reserved byte(1)
+
+        0x95, 0x05,       // Report Count (5)
+        0x75, 0x01,       // Report Size (1)
+        0x05, 0x08,       // Usage Page (Page# for LEDs)
+        0x19, 0x01,       // Usage Minimum (1)
+        0x29, 0x05,       // Usage Maximum (5)
+        0x91, 0x02,       // Output (Data, Variable, Absolute), Led report
+        0x95, 0x01,       // Report Count (1)
+        0x75, 0x03,       // Report Size (3)
+        0x91, 0x01,       // Output (Data, Variable, Absolute), Led report padding
+
+        0x95, 0x06,       // Report Count (6)
+        0x75, 0x08,       // Report Size (8)
+        0x15, 0x00,       // Logical Minimum (0)
+        0x25, 0x65,       // Logical Maximum (101)
+        0x05, 0x07,       // Usage Page (Key codes)
+        0x19, 0x00,       // Usage Minimum (0)
+        0x29, 0x65,       // Usage Maximum (101)
+        0x81, 0x00,       // Input (Data, Array) Key array(6 bytes)
+
+        0x09, 0x05,       // Usage (Vendor Defined)
+        0x15, 0x00,       // Logical Minimum (0)
+        0x26, 0xFF, 0x00, // Logical Maximum (255)
+        0x75, 0x08,       // Report Count (2)
+        0x95, 0x02,       // Report Size (8 bit)
+        0xB1, 0x02,       // Feature (Data, Variable, Absolute)
+
+        0xC0              // End Collection (Application)
+    };
+
+    // Initialize HID Service
+    uint8_t hid_info_flags = HID_INFO_FLAG_REMOTE_WAKE_MSK | HID_INFO_FLAG_NORMALLY_CONNECTABLE_MSK;
+
+    ble_hids_init_t            hids_init_obj =
+    {
+        .evt_handler                    = on_hids_evt,
+        .error_handler                  = service_error_handler,
+        .is_kb                          = true,
+        .is_mouse                       = false,
+        .inp_rep_count                  = sizeof(input_report_array) / sizeof(ble_hids_inp_rep_init_t),
+        .p_inp_rep_array                = input_report_array,
+        .outp_rep_count                 = sizeof(output_report_array) / sizeof(output_report_array),
+        .p_outp_rep_array               = output_report_array,
+        .feature_rep_count              = 0,
+        .p_feature_rep_array            = NULL,\
+        .rep_map =
+        {
+            .data_len               = sizeof(report_map_data),
+            .p_data= report_map_data,
+            .security_mode =
+            {
+                .read_perm = { 1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+                .write_perm = { 0, 0} // Security Mode 0 Level 0: No access permissions
+            }
+        },
+        .hid_information = 
+        {
+            .b_country_code = 0,
+            .bcd_hid = BASE_USB_HID_SPEC_VERSION,
+            .flags = hid_info_flags,
+            .security_mode = 
+            {
+                .read_perm = { 1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+                .write_perm = { 0, 0} // Security Mode 0 Level 0: No access permissions
+            }
+        },
+        .included_services_count        = 0,
+        .p_included_services_array      = NULL,
+        .security_mode_protocol =
+        {
+            .read_perm = { 1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+            .write_perm = { 1, 2} // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+        },
+        .security_mode_ctrl_point =
+        {
+            .read_perm = { 0, 0}, // Security Mode 0 Level 0: No access permissions
+            .write_perm = { 1, 2} // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+        },
+        .security_mode_boot_kb_inp_rep =
+        {
+            .cccd_write_perm = { 1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+            .read_perm = { 1, 2},     // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+            .write_perm = { 0, 0}     // Security Mode 0 Level 0: No access permissions
+        },
+        .security_mode_boot_kb_outp_rep =
+        {
+            .read_perm = { 1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
+            .write_perm = { 0, 0} // Security Mode 0 Level 0: No access permissions
+        },
+    };
+
+    err_code = ble_hids_init(&m_hids, &hids_init_obj);
     APP_ERROR_CHECK(err_code);
 }
-
 
 /**@brief Function for application main entry.
  */
 int main(void)
 {
-    bool     erase_bonds;
+    bool     erase_bonds = false;
     uint32_t err_code;
 
     // Initialize.
@@ -1383,9 +1376,9 @@ int main(void)
     APP_ERROR_CHECK(err_code);
 
     timers_init();
+    scheduler_init();
     app_bsp_init(&erase_bonds);
     ble_stack_init();
-    scheduler_init();
     peer_manager_init(erase_bonds);
     if (erase_bonds == true)
     {
@@ -1393,7 +1386,8 @@ int main(void)
     }
     gap_params_init();
     advertising_init();
-    services_init();
+    dis_init();
+    hids_init();
     conn_params_init();
 
     // // Start execution.
