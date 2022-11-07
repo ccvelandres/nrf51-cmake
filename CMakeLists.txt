@@ -4,7 +4,7 @@ project(blinky LANGUAGES C ASM)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(NRF5_EXTRA_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/config)
-set(NRF5_LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/config/ble_app_hids_keyboard_gcc_nrf51.ld)
+set(NRF5_LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/config/ble_s130_gcc_nrf51.ld)
 add_compile_options(-DUSE_APP_CONFIG)
 add_compile_options(-DNRF5_BOARD=pca10028)
 include(cmake/nrf5.cmake)
