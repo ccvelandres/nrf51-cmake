@@ -79,6 +79,8 @@
 #include "fstorage.h"
 #include "ble_conn_state.h"
 
+#include "hid.h"
+
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
@@ -126,20 +128,7 @@
 #define NEXT_CONN_PARAMS_UPDATE_DELAY APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT 3                                            /**< Number of attempts before giving up the connection parameter negotiation. */
 
-#define OUTPUT_REPORT_INDEX 0                 /**< Index of Output Report. */
-#define OUTPUT_REPORT_MAX_LEN 1               /**< Maximum length of Output Report. */
-#define INPUT_REPORT_KEYS_INDEX 0             /**< Index of Input Report. */
-#define OUTPUT_REPORT_BIT_MASK_CAPS_LOCK 0x02 /**< CAPS LOCK bit in Output Report (based on 'LED Page (0x08)' of the Universal Serial Bus HID Usage Tables). */
-#define INPUT_REP_REF_ID 0                    /**< Id of reference to Keyboard Input Report. */
-#define OUTPUT_REP_REF_ID 0                   /**< Id of reference to Keyboard Output Report. */
-
 #define APP_FEATURE_NOT_SUPPORTED BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2 /**< Reply when unsupported features are requested. */
-
-#define MAX_BUFFER_ENTRIES 5 /**< Number of elements that can be enqueued */
-
-#define BASE_USB_HID_SPEC_VERSION 0x0101 /**< Version number of base USB HID Specification implemented by this application. */
-
-#define INPUT_REPORT_KEYS_MAX_LEN 8 /**< Maximum length of the Input Report characteristic. */
 
 #define DEAD_BEEF 0xDEADBEEF /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
@@ -151,12 +140,6 @@
 #define SCHED_QUEUE_SIZE 8 /**< Maximum number of events in the scheduler queue. */
 #endif
 
-#define MODIFIER_KEY_POS 0  /**< Position of the modifier byte in the Input Report. */
-#define SCAN_CODE_POS 2     /**< This macro indicates the start position of the key scan code in a HID Report. As per the document titled 'Device Class Definition for Human Interface Devices (HID) V1.11, each report shall have one modifier byte followed by a reserved constant byte and then the key scan code. */
-#define SHIFT_KEY_CODE 0x02 /**< Key code indicating the press of the Shift Key. */
-
-#define MAX_KEYS_IN_ONE_REPORT (INPUT_REPORT_KEYS_MAX_LEN - SCAN_CODE_POS) /**< Maximum number of key presses that can be sent in one Input Report. */
-
 typedef enum
 {
     BLE_NO_ADV,             /**< No advertising running. */
@@ -167,8 +150,6 @@ typedef enum
     BLE_SLEEP,              /**< Go to system-off. */
 } ble_advertising_mode_t;
 
-static ble_hids_t m_hids;                                /**< Structure used to identify the HID service. */
-static bool m_in_boot_mode = false;                      /**< Current protocol mode. */
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /**< Handle of the current connection. */
 
 static pm_peer_id_t m_peer_id; /**< Device reference handle to the current bonded central. */
@@ -180,39 +161,7 @@ static bool m_is_wl_changed;                                             /**< In
 
 static ble_uuid_t m_adv_uuids[] = {{BLE_UUID_HUMAN_INTERFACE_DEVICE_SERVICE, BLE_UUID_TYPE_BLE}};
 
-static uint8_t m_sample_key_press_scan_str[] = /**< Key pattern to be sent when the key press button has been pushed. */
-    {
-        0x0b, /* Key h */
-        0x08, /* Key e */
-        0x0f, /* Key l */
-        0x0f, /* Key l */
-        0x12, /* Key o */
-        0x28  /* Key Return */
-};
-
-static uint8_t m_caps_on_key_scan_str[] = /**< Key pattern to be sent when the output report has been written with the CAPS LOCK bit set. */
-    {
-        0x06, /* Key C */
-        0x04, /* Key a */
-        0x13, /* Key p */
-        0x16, /* Key s */
-        0x12, /* Key o */
-        0x11, /* Key n */
-};
-
-static uint8_t m_caps_off_key_scan_str[] = /**< Key pattern to be sent when the output report has been written with the CAPS LOCK bit cleared. */
-    {
-        0x06, /* Key C */
-        0x04, /* Key a */
-        0x13, /* Key p */
-        0x16, /* Key s */
-        0x12, /* Key o */
-        0x09, /* Key f */
-};
-
-static void on_hids_evt(ble_hids_t *p_hids, ble_hids_evt_t *p_evt);
-
-/**@brief Callback function for asserts in the SoftDevice.
+/**brief Callback function for asserts in the SoftDevice.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
  *
@@ -226,18 +175,6 @@ static void on_hids_evt(ble_hids_t *p_hids, ble_hids_evt_t *p_evt);
 void assert_nrf_callback(uint16_t line_num, const uint8_t *p_file_name)
 {
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
-}
-
-/**@brief Function for handling Service errors.
- *
- * @details A pointer to this function will be passed to each service which may need to inform the
- *          application about an error.
- *
- * @param[in]   nrf_error   Error code containing information about what went wrong.
- */
-static void service_error_handler(uint32_t nrf_error)
-{
-    APP_ERROR_HANDLER(nrf_error);
 }
 
 /**@brief Function for handling advertising errors.
@@ -324,207 +261,6 @@ static void advertising_start(void)
 
     ret = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(ret);
-}
-
-/**@brief   Function for transmitting a key scan Press & Release Notification.
- *
- * @warning This handler is an example only. You need to analyze how you wish to send the key
- *          release.
- *
- * @param[in]  p_instance     Identifies the service for which Key Notifications are requested.
- * @param[in]  p_key_pattern  Pointer to key pattern.
- * @param[in]  pattern_len    Length of key pattern. 0 < pattern_len < 7.
- * @param[in]  pattern_offset Offset applied to Key Pattern for transmission.
- * @param[out] actual_len     Provides actual length of Key Pattern transmitted, making buffering of
- *                            rest possible if needed.
- * @return     NRF_SUCCESS on success, BLE_ERROR_NO_TX_PACKETS in case transmission could not be
- *             completed due to lack of transmission buffer or other error codes indicating reason
- *             for failure.
- *
- * @note       In case of BLE_ERROR_NO_TX_PACKETS, remaining pattern that could not be transmitted
- *             can be enqueued \ref buffer_enqueue function.
- *             In case a pattern of 'cofFEe' is the p_key_pattern, with pattern_len as 6 and
- *             pattern_offset as 0, the notifications as observed on the peer side would be
- *             1>    'c', 'o', 'f', 'F', 'E', 'e'
- *             2>    -  , 'o', 'f', 'F', 'E', 'e'
- *             3>    -  ,   -, 'f', 'F', 'E', 'e'
- *             4>    -  ,   -,   -, 'F', 'E', 'e'
- *             5>    -  ,   -,   -,   -, 'E', 'e'
- *             6>    -  ,   -,   -,   -,   -, 'e'
- *             7>    -  ,   -,   -,   -,   -,  -
- *             Here, '-' refers to release, 'c' refers to the key character being transmitted.
- *             Therefore 7 notifications will be sent.
- *             In case an offset of 4 was provided, the pattern notifications sent will be from 5-7
- *             will be transmitted.
- */
-static uint32_t send_key_scan_press_release(ble_hids_t *p_hids,
-                                            uint8_t *p_key_pattern,
-                                            uint16_t pattern_len,
-                                            uint16_t pattern_offset,
-                                            uint16_t *p_actual_len)
-{
-    uint32_t err_code;
-    uint16_t offset;
-    uint16_t data_len;
-    uint8_t data[INPUT_REPORT_KEYS_MAX_LEN];
-
-    // HID Report Descriptor enumerates an array of size 6, the pattern hence shall not be any
-    // longer than this.
-    STATIC_ASSERT((INPUT_REPORT_KEYS_MAX_LEN - 2) == 6);
-
-    ASSERT(pattern_len <= (INPUT_REPORT_KEYS_MAX_LEN - 2));
-
-    offset = pattern_offset;
-    data_len = pattern_len;
-
-    do
-    {
-        // Reset the data buffer.
-        memset(data, 0, sizeof(data));
-
-        // Copy the scan code.
-        memcpy(data + SCAN_CODE_POS + offset, p_key_pattern + offset, data_len - offset);
-
-        if (bsp_button_is_pressed(SHIFT_BUTTON_ID))
-        {
-            data[MODIFIER_KEY_POS] |= SHIFT_KEY_CODE;
-        }
-
-        if (!m_in_boot_mode)
-        {
-            err_code = ble_hids_inp_rep_send(p_hids,
-                                             INPUT_REPORT_KEYS_INDEX,
-                                             INPUT_REPORT_KEYS_MAX_LEN,
-                                             data);
-        }
-        else
-        {
-            err_code = ble_hids_boot_kb_inp_rep_send(p_hids,
-                                                     INPUT_REPORT_KEYS_MAX_LEN,
-                                                     data);
-        }
-
-        if (err_code != NRF_SUCCESS)
-        {
-            break;
-        }
-
-        offset++;
-    } while (offset <= data_len);
-
-    *p_actual_len = offset;
-
-    return err_code;
-}
-
-/**@brief Function for sending sample key presses to the peer.
- *
- * @param[in]   key_pattern_len   Pattern length.
- * @param[in]   p_key_pattern     Pattern to be sent.
- */
-static void keys_send(uint8_t key_pattern_len, uint8_t *p_key_pattern)
-{
-    uint32_t err_code;
-    uint16_t actual_len;
-
-    err_code = send_key_scan_press_release(&m_hids,
-                                           p_key_pattern,
-                                           key_pattern_len,
-                                           0,
-                                           &actual_len);
-
-    if ((err_code != NRF_SUCCESS) &&
-        (err_code != NRF_ERROR_INVALID_STATE) &&
-        (err_code != BLE_ERROR_NO_TX_PACKETS) &&
-        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING))
-    {
-        APP_ERROR_HANDLER(err_code);
-    }
-}
-
-/**@brief Function for handling the HID Report Characteristic Write event.
- *
- * @param[in]   p_evt   HID service event.
- */
-static void on_hid_rep_char_write(ble_hids_evt_t *p_evt)
-{
-    if (p_evt->params.char_write.char_id.rep_type == BLE_HIDS_REP_TYPE_OUTPUT)
-    {
-        uint32_t err_code;
-        uint8_t report_val;
-        uint8_t report_index = p_evt->params.char_write.char_id.rep_index;
-
-        if (report_index == OUTPUT_REPORT_INDEX)
-        {
-            // This code assumes that the outptu report is one byte long. Hence the following
-            // static assert is made.
-            STATIC_ASSERT(OUTPUT_REPORT_MAX_LEN == 1);
-
-            err_code = ble_hids_outp_rep_get(&m_hids,
-                                             report_index,
-                                             OUTPUT_REPORT_MAX_LEN,
-                                             0,
-                                             &report_val);
-            APP_ERROR_CHECK(err_code);
-
-            if (!m_caps_on && ((report_val & OUTPUT_REPORT_BIT_MASK_CAPS_LOCK) != 0))
-            {
-                // Caps Lock is turned On.
-                NRF_LOG_INFO("Caps Lock is turned On!\r\n");
-                err_code = bsp_indication_set(BSP_INDICATE_ALERT_3);
-                APP_ERROR_CHECK(err_code);
-
-                keys_send(sizeof(m_caps_on_key_scan_str), m_caps_on_key_scan_str);
-                m_caps_on = true;
-            }
-            else if (m_caps_on && ((report_val & OUTPUT_REPORT_BIT_MASK_CAPS_LOCK) == 0))
-            {
-                // Caps Lock is turned Off .
-                NRF_LOG_INFO("Caps Lock is turned Off!\r\n");
-                err_code = bsp_indication_set(BSP_INDICATE_ALERT_OFF);
-                APP_ERROR_CHECK(err_code);
-
-                keys_send(sizeof(m_caps_off_key_scan_str), m_caps_off_key_scan_str);
-                m_caps_on = false;
-            }
-            else
-            {
-                // The report received is not supported by this application. Do nothing.
-            }
-        }
-    }
-}
-
-/**@brief Function for handling HID events.
- *
- * @details This function will be called for all HID events which are passed to the application.
- *
- * @param[in]   p_hids  HID service structure.
- * @param[in]   p_evt   Event received from the HID service.
- */
-static void on_hids_evt(ble_hids_t *p_hids, ble_hids_evt_t *p_evt)
-{
-    switch (p_evt->evt_type)
-    {
-    case BLE_HIDS_EVT_BOOT_MODE_ENTERED:
-        m_in_boot_mode = true;
-        break;
-
-    case BLE_HIDS_EVT_REPORT_MODE_ENTERED:
-        m_in_boot_mode = false;
-        break;
-
-    case BLE_HIDS_EVT_REP_CHAR_WRITE:
-        on_hid_rep_char_write(p_evt);
-        break;
-
-    case BLE_HIDS_EVT_NOTIF_ENABLED:
-        break;
-
-    default:
-        // No implementation needed.
-        break;
-    }
 }
 
 /**@brief Function for handling advertising events.
@@ -740,8 +476,6 @@ static void on_ble_evt(ble_evt_t *p_ble_evt)
 static void bsp_event_handler(bsp_event_t event)
 {
     uint32_t err_code;
-    static uint8_t *p_key = m_sample_key_press_scan_str;
-    static uint8_t size = 0;
 
     switch (event)
     {
@@ -772,14 +506,7 @@ static void bsp_event_handler(bsp_event_t event)
     case BSP_EVENT_KEY_0:
         if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
         {
-            keys_send(1, p_key);
-            p_key++;
-            size++;
-            if (size == MAX_KEYS_IN_ONE_REPORT)
-            {
-                p_key = m_sample_key_press_scan_str;
-                size = 0;
-            }
+            /** @todo: handle sending macros here */
         }
         break;
 
@@ -933,7 +660,7 @@ static void ble_evt_dispatch(ble_evt_t *p_ble_evt)
     on_ble_evt(p_ble_evt);
     ble_advertising_on_ble_evt(p_ble_evt);
     ble_conn_params_on_ble_evt(p_ble_evt);
-    ble_hids_on_ble_evt(&m_hids, p_ble_evt);
+    hids_on_ble_evt(p_ble_evt);
 }
 
 /**@brief   Function for dispatching a system event to interested modules.
@@ -1204,148 +931,6 @@ static void dis_init(void)
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init_obj.dis_attr_md.write_perm);
 
     err_code = ble_dis_init(&dis_init_obj);
-    APP_ERROR_CHECK(err_code);
-}
-
-/**@brief Function for initializing HID Service.
- */
-static void hids_init(void)
-{
-    uint32_t err_code;
-    ble_hids_inp_rep_init_t input_report_array[1] =
-        {
-            {.max_len = INPUT_REPORT_KEYS_MAX_LEN,
-             .rep_ref =
-                 {
-                     .report_id = INPUT_REP_REF_ID,
-                     .report_type = BLE_HIDS_REP_TYPE_INPUT},
-             .security_mode =
-                 {
-                     .cccd_write_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                     .read_perm = {1, 2},       // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                     .write_perm = {1, 2}       // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                 }}};
-
-    ble_hids_outp_rep_init_t output_report_array[1] =
-        {
-            {.max_len = OUTPUT_REPORT_MAX_LEN,
-             .rep_ref =
-                 {
-                     .report_id = OUTPUT_REP_REF_ID,
-                     .report_type = BLE_HIDS_REP_TYPE_OUTPUT},
-             .security_mode =
-                 {
-                     .read_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                     .write_perm = {1, 2} // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                 }}};
-
-    static const uint8_t report_map_data[] =
-        {
-            0x05, 0x01, // Usage Page (Generic Desktop)
-            0x09, 0x06, // Usage (Keyboard)
-            0xA1, 0x01, // Collection (Application)
-            0x05, 0x07, // Usage Page (Key Codes)
-            0x19, 0xe0, // Usage Minimum (224)
-            0x29, 0xe7, // Usage Maximum (231)
-            0x15, 0x00, // Logical Minimum (0)
-            0x25, 0x01, // Logical Maximum (1)
-            0x75, 0x01, // Report Size (1)
-            0x95, 0x08, // Report Count (8)
-            0x81, 0x02, // Input (Data, Variable, Absolute)
-
-            0x95, 0x01, // Report Count (1)
-            0x75, 0x08, // Report Size (8)
-            0x81, 0x01, // Input (Constant) reserved byte(1)
-
-            0x95, 0x05, // Report Count (5)
-            0x75, 0x01, // Report Size (1)
-            0x05, 0x08, // Usage Page (Page# for LEDs)
-            0x19, 0x01, // Usage Minimum (1)
-            0x29, 0x05, // Usage Maximum (5)
-            0x91, 0x02, // Output (Data, Variable, Absolute), Led report
-            0x95, 0x01, // Report Count (1)
-            0x75, 0x03, // Report Size (3)
-            0x91, 0x01, // Output (Data, Variable, Absolute), Led report padding
-
-            0x95, 0x06, // Report Count (6)
-            0x75, 0x08, // Report Size (8)
-            0x15, 0x00, // Logical Minimum (0)
-            0x25, 0x65, // Logical Maximum (101)
-            0x05, 0x07, // Usage Page (Key codes)
-            0x19, 0x00, // Usage Minimum (0)
-            0x29, 0x65, // Usage Maximum (101)
-            0x81, 0x00, // Input (Data, Array) Key array(6 bytes)
-
-            0x09, 0x05,       // Usage (Vendor Defined)
-            0x15, 0x00,       // Logical Minimum (0)
-            0x26, 0xFF, 0x00, // Logical Maximum (255)
-            0x75, 0x08,       // Report Count (2)
-            0x95, 0x02,       // Report Size (8 bit)
-            0xB1, 0x02,       // Feature (Data, Variable, Absolute)
-
-            0xC0 // End Collection (Application)
-        };
-
-    // Initialize HID Service
-    uint8_t hid_info_flags = HID_INFO_FLAG_REMOTE_WAKE_MSK | HID_INFO_FLAG_NORMALLY_CONNECTABLE_MSK;
-
-    ble_hids_init_t hids_init_obj =
-        {
-            .evt_handler = on_hids_evt,
-            .error_handler = service_error_handler,
-            .is_kb = true,
-            .is_mouse = false,
-            .inp_rep_count = sizeof(input_report_array) / sizeof(ble_hids_inp_rep_init_t),
-            .p_inp_rep_array = input_report_array,
-            .outp_rep_count = sizeof(output_report_array) / sizeof(output_report_array),
-            .p_outp_rep_array = output_report_array,
-            .feature_rep_count = 0,
-            .p_feature_rep_array = NULL,
-            .rep_map =
-                {
-                    .data_len = sizeof(report_map_data),
-                    .p_data = report_map_data,
-                    .security_mode =
-                        {
-                            .read_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                            .write_perm = {0, 0} // Security Mode 0 Level 0: No access permissions
-                        }},
-            .hid_information =
-                {
-                    .b_country_code = 0,
-                    .bcd_hid = BASE_USB_HID_SPEC_VERSION,
-                    .flags = hid_info_flags,
-                    .security_mode =
-                        {
-                            .read_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                            .write_perm = {0, 0} // Security Mode 0 Level 0: No access permissions
-                        }},
-            .included_services_count = 0,
-            .p_included_services_array = NULL,
-            .security_mode_protocol =
-                {
-                    .read_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                    .write_perm = {1, 2} // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                },
-            .security_mode_ctrl_point =
-                {
-                    .read_perm = {0, 0}, // Security Mode 0 Level 0: No access permissions
-                    .write_perm = {1, 2} // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                },
-            .security_mode_boot_kb_inp_rep =
-                {
-                    .cccd_write_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                    .read_perm = {1, 2},       // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                    .write_perm = {0, 0}       // Security Mode 0 Level 0: No access permissions
-                },
-            .security_mode_boot_kb_outp_rep =
-                {
-                    .read_perm = {1, 2}, // Security Mode 1 Level 2: Encrypted link required, MITM protection not necessary.
-                    .write_perm = {0, 0} // Security Mode 0 Level 0: No access permissions
-                },
-        };
-
-    err_code = ble_hids_init(&m_hids, &hids_init_obj);
     APP_ERROR_CHECK(err_code);
 }
 

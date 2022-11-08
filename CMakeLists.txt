@@ -10,7 +10,7 @@ add_compile_options(-DNRF5_BOARD=pca10028)
 include(cmake/nrf5.cmake)
 
 
-add_executable(main src/main.c)
+add_executable(main src/main.c src/hid.c)
 nrf5_setup_exe(main)
 # target_include_directories(main PUBLIC )
 target_link_libraries(main PRIVATE
