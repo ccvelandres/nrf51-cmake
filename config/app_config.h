@@ -1,2 +1,0 @@
-#define NRF_LOG_ENABLED 1
-#define NRF_LOG_DEFAULT_LEVEL 2
