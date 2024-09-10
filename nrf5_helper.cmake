@@ -231,5 +231,16 @@ function(nrf5_setup_exe target)
         # copy softdevice hex
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy ${NRF5_SOFTDEVICE_HEX} $<TARGET_PROPERTY:${target},BINARY_DIR>)
+
+            # generate merged hex files if srec_cat is found
+            find_program(SREC_CAT NAMES srec_cat)
+            if(SREC_CAT)
+                message(STATUS "Generating merged hex file: ${target}_${NRF5_SOFTDEVICE}.hex")
+                add_custom_command(TARGET ${target} POST_BUILD
+                    COMMAND ${SREC_CAT} "${target}.hex" -Intel "${NRF5_SOFTDEVICE_HEX}" -Intel -o "${target}_${NRF5_SOFTDEVICE}.hex" -Intel)
+            else()
+                message(STATUS "srec_cat not found, cannot generate merged hex files")
+            endif()
+
     endif()
 endfunction()
