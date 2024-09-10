@@ -73,7 +73,8 @@ set(nrf5_boards_src
 ${NRF5_SDK_COMPONENTS_PATH}/boards/boards.c)
 set(nrf5_boards_inc 
 ${NRF5_SDK_COMPONENTS_PATH}/boards)
-set(nrf5_boards_dep )
+set(nrf5_boards_dep 
+    nrf5_driver_hal)
 set(nrf5_boards_def )
 
 
@@ -156,7 +157,8 @@ set(nrf5_driver_hal_src
     ${NRF5_SDK_COMPONENTS_DRIVERS_PATH}/hal/nrf_saadc.c)
 set(nrf5_driver_hal_inc 
     ${NRF5_SDK_COMPONENTS_DRIVERS_PATH}/hal)
-set(nrf5_driver_hal_dep )
+set(nrf5_driver_hal_dep 
+    nrf5_library_util)
 set(nrf5_driver_hal_def )
 
 # timer
