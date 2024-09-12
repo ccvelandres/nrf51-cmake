@@ -130,23 +130,31 @@ if(NOT ${NRF5_SOFTDEVICE} MATCHES none)
 endif()
 
 # create driver targets
+add_library(nrf5_drivers INTERFACE)
 foreach(tgt ${nrf5_drivers})
     nrf5_create_object(${NRF5_CHIP} nrf5_driver_${tgt})
+    target_link_libraries(nrf5_drivers INTERFACE $<$<TARGET_EXISTS:nrf5_driver_${tgt}>:nrf5_driver_${tgt}>)
 endforeach()
 
 # create library targets
+add_library(nrf5_libraries INTERFACE)
 foreach(tgt ${nrf5_libraries})
     nrf5_create_object(${NRF5_CHIP} nrf5_library_${tgt})
+    target_link_libraries(nrf5_libraries INTERFACE $<$<TARGET_EXISTS:nrf5_library_${tgt}>:nrf5_library_${tgt}>)
 endforeach()
 
 # create ble targets
+add_library(nrf5_ble INTERFACE)
 foreach(tgt ${nrf5_ble})
     nrf5_create_object(${NRF5_CHIP} nrf5_ble_${tgt})
+    target_link_libraries(nrf5_ble INTERFACE $<$<TARGET_EXISTS:nrf5_ble_${tgt}>:nrf5_ble_${tgt}>)
 endforeach()
 
 # create ble services targets
+add_library(nrf5_ble_service INTERFACE)
 foreach(tgt ${nrf5_ble_services})
     nrf5_create_object(${NRF5_CHIP} nrf5_ble_service_${tgt})
+    target_link_libraries(nrf5_ble_service INTERFACE $<$<TARGET_EXISTS:nrf5_ble_service_${tgt}>:nrf5_ble_service_${tgt}>)
 endforeach()
 
 # Revert *_OUTPUT_DIRECTORY back

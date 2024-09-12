@@ -20,6 +20,13 @@ set(nrf5_chip_nrf51802_xxaa nrf51802 nrf51 nrf51422_xxaa xxaa )
 set(nrf5_chip_nrf51822_xxaa nrf51822 nrf51 nrf51822_xxaa xxaa )
 set(nrf5_chip_nrf52832_xxaa nrf52832 nrf52 nrf52832_xxaa xxaa )
 
+# define flash and ram sizes per variant
+# 0 -> flash size
+# 0 -> ram size
+set(nrf5_chip_nrf51_variant_xxaa 256K 16K )
+set(nrf5_chip_nrf51_variant_xxab 128K 16K )
+set(nrf5_chip_nrf51_variant_xxac 256K 32K )
+
 # supported boards
 set(nrf5_boards
     BOARD_NRF6310
@@ -79,13 +86,14 @@ set(nrf5_drivers
     saadc
     sdio
     spi_master
+    # spi_5W_master
     spi_slave
     swi
+    systick
     timer
     twi_master
     twis_slave
     uart
-    uart_fifo
     usbd
     wdt)
 
